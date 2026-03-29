@@ -1,0 +1,81 @@
+# ===========================
+# VoiceAssistant Docker Compose
+# ===========================
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: voice-assistant
+
+    # 开发模式 - 启用热更新
+    profiles:
+      - dev
+
+    ports:
+      - "80:80"        # Nginx 前端
+      - "8080:8080"    # 后端 API
+      - "5173:5173"    # Vite HMR
+
+    environment:
+      - DEV_MODE=true
+      - TZ=Asia/Shanghai
+
+    # 热更新：挂载源代码卷
+    volumes:
+      # 前端源码挂载（支持 Vite HMR）
+      - ../frontend:/app/frontend
+      - ../frontend/node_modules:/app/frontend/node_modules:rw
+      # 后端源码挂载（air 热重载）
+      - ../backend:/app/backend
+      # 日志挂载
+      - ./logs:/app/logs
+
+    # 开发模式网络
+    networks:
+      - internal
+
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  app-prod:
+    # 生产模式
+    profiles:
+      - prod
+
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+
+    container_name: voice-assistant-prod
+
+    ports:
+      - "80:80"
+      - "8080:8080"
+
+    environment:
+      - DEV_MODE=false
+      - TZ=Asia/Shanghai
+
+    # 生产模式：使用构建好的静态文件，不挂载源码
+    volumes:
+      - ./logs:/app/logs
+
+    networks:
+      - internal
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  internal:
+    driver: bridge

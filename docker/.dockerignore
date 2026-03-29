@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# 日志
+*.log
+logs/
+
+# 环境变量
+.env
+.env.*
+!.env.example
+
+# 依赖（单独挂载）
+frontend/node_modules/
+backend/vendor/
+
+# 构建产物（使用 Docker 构建）
+frontend/dist/
+
+# 其他
+README.md
+LICENSE
+*.md

@@ -1,0 +1,228 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg-deep: #050508;
+    --color-bg-surface: #0c0c14;
+    --color-bg-elevated: #12121f;
+    --color-accent-cyan: #00f5d4;
+    --color-accent-cyan-dim: #00c4aa;
+    --color-accent-purple: #9d4edd;
+    --color-accent-pink: #ff006e;
+    --color-text-primary: #f0f0f5;
+    --color-text-secondary: #8888a0;
+    --color-text-muted: #55556a;
+    --color-border: rgba(255, 255, 255, 0.08);
+    --color-glass: rgba(18, 18, 31, 0.7);
+    --font-display: 'Space Grotesk', system-ui, sans-serif;
+    --font-body: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  body {
+    font-family: var(--font-body);
+  }
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    background: var(--color-bg-deep);
+    color: var(--color-text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: var(--color-accent-cyan);
+    color: var(--color-bg-deep);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-text-muted);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-secondary);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 245, 212, 0.4);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 30px 10px rgba(0, 245, 212, 0.2);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.4s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.4s ease-out forwards;
+}
+
+.glass-card {
+  background: var(--color-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+}
+
+.mic-button {
+  animation: breathe 2s ease-in-out infinite;
+}
+
+.mic-button:hover {
+  animation: none;
+  transform: scale(1.05);
+}
+
+.mic-button:active {
+  transform: scale(0.98);
+}
+
+.mic-button.recording {
+  animation: breathe 1s ease-in-out infinite;
+  background: linear-gradient(135deg, var(--color-accent-pink), var(--color-accent-purple));
+}
+
+.mic-button.recording::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent-cyan);
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+.glow-text {
+  text-shadow: 0 0 20px var(--color-accent-cyan), 0 0 40px rgba(0, 245, 212, 0.3);
+}
+
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  z-index: 9999;
+}
+
+.gradient-orb {
+  position: fixed;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.gradient-orb-1 {
+  background: var(--color-accent-purple);
+  top: -200px;
+  left: -200px;
+}
+
+.gradient-orb-2 {
+  background: var(--color-accent-cyan);
+  bottom: -200px;
+  right: -200px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+}
+
+.status-dot.active {
+  background: var(--color-accent-cyan);
+  box-shadow: 0 0 10px var(--color-accent-cyan);
+  animation: glow-pulse 2s ease-in-out infinite;
+}
