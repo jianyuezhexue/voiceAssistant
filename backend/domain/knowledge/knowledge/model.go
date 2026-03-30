@@ -17,8 +17,8 @@ type KnowledgeEntity struct {
 	base.BaseModel[KnowledgeEntity]
 	Title    string `gorm:"size:255;not null" json:"title"`
 	Content  string `gorm:"type:text;not null" json:"content"`
-	Category string `gorm:"size:100" json:"category"`   // business, technical, etc.
-	Source   string `gorm:"size:50" json:"source"`      // voice, manual
+	Category string `gorm:"size:100" json:"category"`  // business, technical, etc.
+	Source   string `gorm:"size:50" json:"source"`     // voice, manual
 	VectorID string `gorm:"size:255" json:"vector_id"` // Milvus 向量 ID
 }
 
