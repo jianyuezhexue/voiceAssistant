@@ -1,0 +1,23 @@
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /health                   --> voice-assistant/backend/router.Setup.func1 (3 handlers)
+[GIN-debug] POST   /api/v1/todos             --> voice-assistant/backend/api/todo.(*Todo).Create-fm (3 handlers)
+[GIN-debug] PUT    /api/v1/todos/:id         --> voice-assistant/backend/api/todo.(*Todo).Update-fm (3 handlers)
+[GIN-debug] GET    /api/v1/todos/:id         --> voice-assistant/backend/api/todo.(*Todo).Get-fm (3 handlers)
+[GIN-debug] GET    /api/v1/todos/list        --> voice-assistant/backend/api/todo.(*Todo).List-fm (3 handlers)
+[GIN-debug] DELETE /api/v1/todos             --> voice-assistant/backend/api/todo.(*Todo).Del-fm (3 handlers)
+[GIN-debug] POST   /api/v1/knowledge         --> voice-assistant/backend/api/knowledge.(*Knowledge).Create-fm (3 handlers)
+[GIN-debug] PUT    /api/v1/knowledge/:id     --> voice-assistant/backend/api/knowledge.(*Knowledge).Update-fm (3 handlers)
+[GIN-debug] GET    /api/v1/knowledge/:id     --> voice-assistant/backend/api/knowledge.(*Knowledge).Get-fm (3 handlers)
+[GIN-debug] GET    /api/v1/knowledge/list    --> voice-assistant/backend/api/knowledge.(*Knowledge).List-fm (3 handlers)
+[GIN-debug] POST   /api/v1/knowledge/search  --> voice-assistant/backend/api/knowledge.(*Knowledge).Search-fm (3 handlers)
+[GIN-debug] DELETE /api/v1/knowledge         --> voice-assistant/backend/api/knowledge.(*Knowledge).Del-fm (3 handlers)
+[GIN-debug] GET    /ws/asr                   --> voice-assistant/backend/api/asr.(*ASR).Handle-fm (3 handlers)
+[GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+Please check https://pkg.go.dev/github.com/gin-gonic/gin#readme-don-t-trust-all-proxies for details.
+[GIN-debug] Listening and serving HTTP on :8080
+[GIN] 2026/03/29 - 19:50:36 | 200 |      24.417µs |    192.168.65.1 | GET      "/health"

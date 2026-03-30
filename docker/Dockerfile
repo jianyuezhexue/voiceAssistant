@@ -29,6 +29,9 @@ FROM golang:1.22-alpine AS backend-builder
 
 WORKDIR /app/backend
 
+# 设置 Go 代理（解决国内网络问题）
+ENV GOPROXY=https://goproxy.cn,direct
+
 # 安装 Go 依赖
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
@@ -37,7 +40,8 @@ RUN go mod download
 COPY backend/ ./
 
 # 编译 Go 程序
-RUN CGO_ENABLED=0 GOOS=linux go build -o server .
+# 注意：确保架构与运行时 alpine 一致
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o server .
 
 # ----------------------------
 # 第三阶段：运行阶段

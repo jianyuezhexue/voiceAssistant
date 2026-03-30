@@ -13,6 +13,13 @@ func Setup(mode string) *gin.Engine {
 
 	r := gin.Default()
 
+	// 设置默认用户ID（解决 currUserId 缺失问题）
+	r.Use(func(c *gin.Context) {
+		c.Set("currUserId", "1")
+		c.Set("currUserName", "系统")
+		c.Next()
+	})
+
 	// 健康检查
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})

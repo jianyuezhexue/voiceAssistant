@@ -10,9 +10,6 @@ class ASRWebSocket {
   private ws: WebSocket | null = null;
   private messageHandlers: Set<MessageHandler> = new Set();
   private errorHandlers: Set<ErrorHandler> = new Set();
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 1; // 开发环境只重连一次
-  private reconnectDelay = 2000;
 
   connect() {
     if (this.ws?.readyState === WebSocket.OPEN) {
@@ -24,7 +21,6 @@ class ASRWebSocket {
 
     this.ws.onopen = () => {
       console.log('[WS] Connected to ASR service');
-      this.reconnectAttempts = 0;
     };
 
     this.ws.onmessage = (event) => {
@@ -61,6 +57,8 @@ class ASRWebSocket {
   send(data: string | ArrayBuffer) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(data);
+    } else {
+      console.warn('[WS] Cannot send, WebSocket not ready. State:', this.ws?.readyState);
     }
   }
 

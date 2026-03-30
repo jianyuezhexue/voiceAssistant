@@ -80,6 +80,24 @@ async function startRecording() {
     // Start visual feedback
     updateAudioLevel();
 
+    // Connect to ASR WebSocket FIRST
+    asrService.connect();
+
+    // Wait for connection before starting MediaRecorder
+    await new Promise<void>((resolve) => {
+      const checkConnection = setInterval(() => {
+        if (asrService.isConnected) {
+          clearInterval(checkConnection);
+          resolve();
+        }
+      }, 50);
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        clearInterval(checkConnection);
+        resolve();
+      }, 5000);
+    });
+
     // Setup MediaRecorder
     mediaRecorder = new MediaRecorder(stream, {
       mimeType: 'audio/webm;codecs=opus',
@@ -88,6 +106,7 @@ async function startRecording() {
     mediaRecorder.ondataavailable = async (event) => {
       if (event.data.size > 0) {
         const arrayBuffer = await event.data.arrayBuffer();
+        console.log('[App] Sending audio chunk, size:', arrayBuffer.byteLength);
         asrService.send(arrayBuffer);
       }
     };
@@ -98,9 +117,6 @@ async function startRecording() {
 
     // Send audio data every 100ms
     mediaRecorder.start(100);
-
-    // Connect to ASR WebSocket
-    asrService.connect();
 
     isRecording.value = true;
     meetingStatus.value = 'recording';

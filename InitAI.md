@@ -161,6 +161,27 @@ This file defines the agent cluster for VoiceAssistant project development. Each
 
 ---
 
+## Go Dependency Management
+
+**使用 `go mod vendor` 管理第三方依赖：**
+
+```bash
+# 安装/更新依赖后，创建 vendor 目录
+cd backend && go mod tidy && go mod vendor
+
+# Docker 构建时使用 vendor 目录
+# Dockerfile.app 中已配置：
+COPY backend/vendor /app/vendor
+RUN go build -mod=vendor -o server .
+```
+
+**规范：**
+- 所有第三方依赖必须通过 `go mod vendor` 纳入 vendor 目录
+- 禁止在代码中直接依赖未纳入 vendor 的包
+- 阿里云 SDK 等核心依赖必须使用官方 SDK
+
+---
+
 ## Docker Operations (DevOps Only)
 
 ```bash
