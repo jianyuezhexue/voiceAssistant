@@ -32,3 +32,4 @@ go.work.sum
 # .vscode/
 backend/config/config.yaml
 .mcp.json
+.setting/mcp-mysql.log
