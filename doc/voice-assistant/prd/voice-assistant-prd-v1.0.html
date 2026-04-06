@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语音对话功能 PRD v1.0 - VoiceAssistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 260px;
+            background: #fff;
+            border-right: 1px solid #e0e0e0;
+            padding: 24px 16px;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .sidebar h2 {
+            font-size: 16px;
+            color: #1a1a1a;
+            margin-bottom: 16px;
+            padding-left: 8px;
+        }
+        .toc {
+            list-style: none;
+        }
+        .toc li {
+            margin-bottom: 4px;
+        }
+        .toc a {
+            display: block;
+            padding: 8px 12px;
+            color: #666;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .toc a:hover {
+            background: #f0f0f0;
+            color: #1a1a1a;
+        }
+        .toc .section {
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-top: 16px;
+            padding-left: 8px;
+        }
+        .main {
+            flex: 1;
+            margin-left: 260px;
+            padding: 40px 60px;
+            max-width: 1000px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 16px;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        .header .meta {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .version-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-right: 12px;
+        }
+        .section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .section h2 {
+            font-size: 22px;
+            color: #1a1a1a;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .section h3 {
+            font-size: 16px;
+            color: #333;
+            margin: 20px 0 12px;
+        }
+        .section p {
+            margin-bottom: 12px;
+            color: #555;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #fafafa;
+            font-weight: 600;
+            color: #333;
+        }
+        tr:hover {
+            background: #fafafa;
+        }
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .tag-must { background: #fee; color: #c00; }
+        .tag-should { background: #ffeedb; color: #a60; }
+        .tag-can { background: #e8f4ff; color: #069; }
+        .status-table td:nth-child(3) { font-weight: 500; }
+        .journey-table td { vertical-align: top; }
+        .journey-table .phase { font-weight: 600; color: #667eea; }
+        .journey-table .action { color: #333; }
+        .journey-table .pain { color: #c00; }
+        .journey-table .opportunity { color: #0a0; }
+
+        .flow-container {
+            background: #fafafa;
+            border-radius: 8px;
+            padding: 24px;
+            margin: 16px 0;
+        }
+        .flow-step {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px dashed #e0e0e0;
+        }
+        .flow-step:last-child {
+            border-bottom: none;
+        }
+        .flow-step .num {
+            width: 32px;
+            height: 32px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+        .flow-step .desc {
+            color: #333;
+        }
+        .flow-step .tech {
+            margin-left: auto;
+            font-size: 12px;
+            color: #999;
+            background: #f0f0f0;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .state-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+        .state-card {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        .state-card .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        .state-card .name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .state-card .desc {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .notice {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 16px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+        }
+        .notice-title {
+            font-weight: 600;
+            color: #b45309;
+            margin-bottom: 8px;
+        }
+
+        .placeholder {
+            background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            color: #999;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="sidebar">
+            <h2>目录导航</h2>
+            <ul class="toc">
+                <li><a href="#info">项目信息</a></li>
+                <li class="section"><a href="#background">一、需求背景</a></li>
+                <li class="section"><a href="#goals">二、需求目标</a></li>
+                <li class="section"><a href="#users">三、用户与场景</a></li>
+                <li class="section"><a href="#features">四、功能清单</a></li>
+                <li class="section"><a href="#detail">五、详细方案</a></li>
+                <li class="section"><a href="#flow">六、业务流程图</a></li>
+                <li class="section"><a href="#exception">七、异常处理</a></li>
+                <li class="section"><a href="#future">八、未来演进</a></li>
+                <li class="section"><a href="#version">版本记录</a></li>
+            </ul>
+        </nav>
+
+        <main class="main">
+            <div class="header">
+                <span class="version-badge">v1.0</span>
+                <h1>语音对话功能 PRD</h1>
+                <p class="meta">创建日期：2026-04-06 | 产品经理：VoiceAssistant Team</p>
+            </div>
+
+            <!-- 项目信息 -->
+            <section id="info" class="section">
+                <h2>项目信息</h2>
+                <table>
+                    <tr>
+                        <th>项目名称</th>
+                        <td>VoiceAssistant 语音对话模块</td>
+                    </tr>
+                    <tr>
+                        <th>版本号</th>
+                        <td>v1.0</td>
+                    </tr>
+                    <tr>
+                        <th>状态</th>
+                        <td>需求确认中</td>
+                    </tr>
+                    <tr>
+                        <th>关联产品</th>
+                        <td>VoiceAssistant</td>
+                    </tr>
+                    <tr>
+                        <th>技术栈</th>
+                        <td>Vue 3 + Go + WebSocket + WebRTC + CosyVoice/SenseVoice + Qwen3-TTS</td>
+                    </tr>
+                </table>
+            </section>
+
+            <!-- 一、需求背景 -->
+            <section id="background" class="section">
+                <h2>一、需求背景</h2>
+
+                <h3>1.1 现状问题</h3>
+                <p>当前 VoiceAssistant 产品以文字交互为主，用户在灵感闪现时，需要经过「打开APP → 打字 → 发送」等步骤，流程繁琐，容易错过最佳记录时机。</p>
+
+                <h3>1.2 为什么现在做</h3>
+                <p>语音是更自然的交互方式，特别适合碎片化场景。作为战略性入口，先建立稳定的语音对话能力，后续可扩展为复杂的多模态助理。</p>
+
+                <h3>1.3 价值定位</h3>
+                <table>
+                    <tr>
+                        <th>对用户</th>
+                        <td>将灵感记录从「想到→打字」简化为「想到→说出来」，降低记录门槛</td>
+                    </tr>
+                    <tr>
+                        <th>对产品</th>
+                        <td>积累用户语音数据，为未来AI理解层升级奠定基础</td>
+                    </tr>
+                </table>
+            </section>
+
+            <!-- 二、需求目标 -->
+            <section id="goals" class="section">
+                <h2>二、需求目标</h2>
+                <table>
+                    <tr>
+                        <th>目标类型</th>
+                        <th>描述</th>
+                        <th>衡量指标</th>
+                        <th>目标值</th>
+                    </tr>
+                    <tr>
+                        <td><span class="tag tag-must">核心</span></td>
+                        <td>实现语音唤醒→识别→回复→播报的完整闭环</td>
+                        <td>端到端延迟</td>
+                        <td>&lt;2秒</td>
+                    </tr>
+                    <tr>
+                        <td><span class="tag tag-must">核心</span></td>
+                        <td>支持随时打断AI说话</td>
+                        <td>打断响应时间</td>
+                        <td>&lt;300ms</td>
+                    </tr>
+                    <tr>
+                        <td><span class="tag tag-should">重要</span></td>
+                        <td>实时识别文字上屏</td>
+                        <td>识别延迟</td>
+                        <td>&lt;500ms</td>
+                    </tr>
+                    <tr>
+                        <td><span class="tag tag-can">可选</span></td>
+                        <td>支持持续多轮对话</td>
+                        <td>对话轮次</td>
+                        <td>无上限</td>
+                    </tr>
+                </table>
+            </section>
+
+            <!-- 三、用户与场景 -->
+            <section id="users" class="section">
+                <h2>三、用户与使用场景</h2>
+
+                <h3>3.1 典型用户画像</h3>
+                <table>
+                    <tr>
+                        <th>用户类型</th>
+                        <th>特征</th>
+                        <th>使用场景</th>
+                    </tr>
+                    <tr>
+                        <td>灵感记录者</td>
+                        <td>创意工作者、作家、策划</td>
+                        <td>灵感闪现时随时记录</td>
+                    </tr>
+                    <tr>
+                        <td>日程管理者</td>
+                        <td>职场人士、项目管理者</td>
+                        <td>快速添加待办、设置提醒</td>
+                    </tr>
+                </table>
+
+                <h3>3.2 用户旅程图</h3>
+                <table class="journey-table">
+                    <tr>
+                        <th>阶段</th>
+                        <th>用户触点</th>
+                        <th>用户行为</th>
+                        <th>痛点/情绪</th>
+                        <th>产品机会点</th>
+                    </tr>
+                    <tr>
+                        <td class="phase">触发</td>
+                        <td>首页界面</td>
+                        <td class="action">触发唤醒词"小爱同学"</td>
+                        <td class="pain">唤醒是否成功不确定</td>
+                        <td class="opportunity">提供唤醒成功视觉/听觉反馈</td>
+                    </tr>
+                    <tr>
+                        <td class="phase">表达</td>
+                        <td>麦克风</td>
+                        <td class="action">说出想法/日程</td>
+                        <td class="pain">不知道是否被正确识别</td>
+                        <td class="opportunity">实时字幕上屏</td>
+                    </tr>
+                    <tr>
+                        <td class="phase">等待</td>
+                        <td>对话气泡</td>
+                        <td class="action">等待AI处理</td>
+                        <td class="pain">不知道AI是否听懂</td>
+                        <td class="opportunity">状态动画（思考中...）</td>
+                    </tr>
+                    <tr>
+                        <td class="phase">接收</td>
+                        <td>对话气泡+语音</td>
+                        <td class="action">听AI回复</td>
+                        <td class="pain">回复内容多时播放时间长</td>
+                        <td class="opportunity">支持随时打断</td>
+                    </tr>
+                    <tr>
+                        <td class="phase">完成</td>
+                        <td>对话气泡</td>
+                        <td class="action">查看对话记录</td>
+                        <td class="pain">-</td>
+                        <td class="opportunity">对话内容可追溯</td>
+                    </tr>
+                </table>
+            </section>
+
+            <!-- 四、功能清单 -->
+            <section id="features" class="section">
+                <h2>四、需求功能清单</h2>
+
+                <h3>4.1 核心功能</h3>
+                <table>
+                    <tr>
+                        <th>功能模块</th>
+                        <th>功能点</th>
+                        <th>优先级</th>
+                        <th>说明</th>
+                    </tr>
+                    <tr>
+                        <td>唤醒模块</td>
+                        <td>唤醒词检测</td>
+                        <td><span class="tag tag-must">必须</span></td>
+                        <td>固定唤醒词"小爱同学"</td>
+                    </tr>
+                    <tr>
+                        <td>音频采集</td>
+                        <td>持续监听</td>
+                        <td><span class="tag tag-must">必须</span></td>
+                        <td>Always-on持续监听 + 点击触发两种模式</td>
+                    </tr>
+                    <tr>
+                        <td>音频前处理</td>
+                        <td>降噪+AEC</td>
+                        <td><span class="tag tag-must">必须</span></td>
+                        <td>噪声抑制 + 回声消除</td>
+                    </tr>
+                    <tr>
+                        <td>语音活动检测</td>
+                        <td>VAD</td>
+                        <td><span class="tag tag-must">必须</span></td>
+                        <td>WebRTC VAD检测说话起止</td>
+                    </tr>
+                    <tr>
+                        <td>语音识别</td>
+                        <td>实时ASR</td>
+                        <td><span class="tag tag-must">必须</span></td>
+                        <td>实时转文字，流式输出</td>
+                    </tr>
+                    <tr>
+                        <td>打断机制</td>
+                        <td>用户打断</td>
+                        <td><span class="tag tag-must">必须</span></td>
+                        <td>用户新话语打断AI说话</td>
+                    </tr>
+                    <tr>
+                        <td>AI回复</td>
+                        <td>文字回复</td>
+                        <td><span class="tag tag-must">必须</span></td>
+                        <td>大模型生成回复文字</td>
+                    </tr>
+                    <tr>
+                        <td>TTS语音合成</td>
+                        <td>实时播报</td>
+                        <td><span class="tag tag-must">必须</span></td>
+                        <td>Qwen3-TTS流式合成</td>
+                    </tr>
+                    <tr>
+                        <td>界面状态</td>
+                        <td>5种状态展示</td>
+                        <td><span class="tag tag-must">必须</span></td>
+                        <td>监听中/识别中/思考中/回复中/播放中</td>
+                    </tr>
+                </table>
+
+                <h3>4.2 UI状态定义</h3>
+                <div class="state-grid">
+                    <div class="state-card">
+                        <div class="icon">🎤</div>
+                        <div class="name">监听中</div>
+                        <div class="desc">等待用户说话</div>
+                    </div>
+                    <div class="state-card">
+                        <div class="icon">📝</div>
+                        <div class="name">识别中</div>
+                        <div class="desc">正在识别语音</div>
+                    </div>
+                    <div class="state-card">
+                        <div class="icon">🤔</div>
+                        <div class="name">思考中</div>
+                        <div class="desc">AI处理中</div>
+                    </div>
+                    <div class="state-card">
+                        <div class="icon">💬</div>
+                        <div class="name">回复中</div>
+                        <div class="desc">AI正在回复</div>
+                    </div>
+                    <div class="state-card">
+                        <div class="icon">🔊</div>
+                        <div class="name">播放中</div>
+                        <div class="desc">TTS播报中</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 五、详细方案 -->
+            <section id="detail" class="section">
+                <h2>五、详细方案</h2>
+                <div class="notice">
+                    <div class="notice-title">⚠️ 原型设计阶段</div>
+                    <p>详细方案中的交互流程图和原型沙盒，切片将在原型设计完成后补充。</p>
+                </div>
+
+                <h3>5.1 唤醒与音频采集</h3>
+                <div class="flow-container">
+                    <div class="flow-step">
+                        <span class="num">1</span>
+                        <span class="desc">用户说"小爱同学"唤醒</span>
+                        <span class="tech">唤醒词检测</span>
+                    </div>
+                    <div class="flow-step">
+                        <span class="num">2</span>
+                        <span class="desc">系统播放唤醒成功音效</span>
+                        <span class="tech">听觉反馈</span>
+                    </div>
+                    <div class="flow-step">
+                        <span class="num">3</span>
+                        <span class="desc">切换为"监听中"状态，等待用户说话</span>
+                        <span class="tech">WebRTC getUserMedia</span>
+                    </div>
+                    <div class="flow-step">
+                        <span class="num">4</span>
+                        <span class="desc">用户开始说话，VAD检测到语音开始</span>
+                        <span class="tech">WebRTC VAD</span>
+                    </div>
+                    <div class="flow-step">
+                        <span class="num">5</span>
+                        <span class="desc">进入"识别中"状态，实时上屏识别文字</span>
+                        <span class="tech">WebSocket 流式传输</span>
+                    </div>
+                    <div class="flow-step">
+                        <span class="num">6</span>
+                        <span class="desc">用户停止说话，VAD检测到语音结束</span>
+                        <span class="tech">VAD 断句</span>
+                    </div>
+                </div>
+
+                <h3>5.2 打断机制</h3>
+                <table>
+                    <tr>
+                        <th>场景</th>
+                        <th>用户行为</th>
+                        <th>系统响应</th>
+                    </tr>
+                    <tr>
+                        <td>AI播放中被打断</td>
+                        <td>用户新说话</td>
+                        <td>立即停止TTS播放，进入识别流程</td>
+                    </tr>
+                    <tr>
+                        <td>AI思考中被打断</td>
+                        <td>用户新说话</td>
+                        <td>取消当前请求，进入识别流程</td>
+                    </tr>
+                    <tr>
+                        <td>用户主动中断</td>
+                        <td>用户点击停止</td>
+                        <td>停止所有流程，回到初始状态</td>
+                    </tr>
+                </table>
+
+                <h3>5.3 回复流程</h3>
+                <div class="flow-container">
+                    <div class="flow-step">
+                        <span class="num">1</span>
+                        <span class="desc">用户话音结束，VAD发送结束信号</span>
+                        <span class="tech">VAD</span>
+                    </div>
+                    <div class="flow-step">
+                        <span class="num">2</span>
+                        <span class="desc">进入"思考中"状态</span>
+                        <span class="tech">UI状态切换</span>
+                    </div>
+                    <div class="flow-step">
+                        <span class="num">3</span>
+                        <span class="desc">发送识别文字到后端，调用大模型</span>
+                        <span class="tech">WebSocket / REST</span>
+                    </div>
+                    <div class="flow-step">
+                        <span class="num">4</span>
+                        <span class="desc">流式返回AI回复文字，显示在对话框</span>
+                        <span class="tech">SSE / WebSocket</span>
+                    </div>
+                    <div class="flow-step">
+                        <span class="num">5</span>
+                        <span class="desc">文字接收完毕后，启动TTS</span>
+                        <span class="tech">Qwen3-TTS</span>
+                    </div>
+                    <div class="flow-step">
+                        <span class="num">6</span>
+                        <span class="desc">TTS音频流式返回，前端UDP播放</span>
+                        <span class="tech">WebRTC DataChannel</span>
+                    </div>
+                    <div class="flow-step">
+                        <span class="num">7</span>
+                        <span class="desc">播放完毕，回到"监听中"状态</span>
+                        <span class="tech">等待下一轮</span>
+                    </div>
+                </div>
+
+                <h3>5.4 技术选型建议</h3>
+                <table>
+                    <tr>
+                        <th>模块</th>
+                        <th>建议方案</th>
+                        <th>说明</th>
+                    </tr>
+                    <tr>
+                        <td>语音识别</td>
+                        <td>CosyVoice Small / SenseVoice Small</td>
+                        <td>本地部署，需技术评审确认</td>
+                    </tr>
+                    <tr>
+                        <td>TTS</td>
+                        <td>Qwen3-TTS</td>
+                        <td>本地部署，流式合成</td>
+                    </tr>
+                    <tr>
+                        <td>VAD</td>
+                        <td>WebRTC VAD</td>
+                        <td>内置于WebRTC</td>
+                    </tr>
+                    <tr>
+                        <td>音频传输</td>
+                        <td>WebRTC DataChannel (UDP)</td>
+                        <td>保证实时性</td>
+                    </tr>
+                    <tr>
+                        <td>文字传输</td>
+                        <td>WebSocket</td>
+                        <td>双向实时</td>
+                    </tr>
+                </table>
+            </section>
+
+            <!-- 六、业务流程图 -->
+            <section id="flow" class="section">
+                <h2>六、业务流程图</h2>
+                <div class="notice">
+                    <div class="notice-title">⚠️ 待原型设计完成后补充</div>
+                    <p>将在步骤四原型设计后，更新Mermaid流程图。</p>
+                </div>
+                <div class="placeholder">
+                    流程图占位 - 原型设计后补充
+                </div>
+            </section>
+
+            <!-- 七、异常处理 -->
+            <section id="exception" class="section">
+                <h2>七、异常与边界处理</h2>
+                <table>
+                    <tr>
+                        <th>异常场景</th>
+                        <th>系统行为</th>
+                        <th>用户反馈</th>
+                    </tr>
+                    <tr>
+                        <td>网络断开</td>
+                        <td>停止语音识别，缓存本地</td>
+                        <td>显示"网络断开"提示</td>
+                    </tr>
+                    <tr>
+                        <td>识别失败</td>
+                        <td>跳过本次识别</td>
+                        <td>显示"未能识别，请重试"</td>
+                    </tr>
+                    <tr>
+                        <td>模型服务不可用</td>
+                        <td>返回错误</td>
+                        <td>显示"服务暂时不可用"</td>
+                    </tr>
+                    <tr>
+                        <td>麦克风权限被拒绝</td>
+                        <td>无法采集音频</td>
+                        <td>引导用户开启权限</td>
+                    </tr>
+                    <tr>
+                        <td>长时间无语音输入</td>
+                        <td>超时后回到初始状态</td>
+                        <td>无</td>
+                    </tr>
+                    <tr>
+                        <td>音频设备切换</td>
+                        <td>重新初始化音频流</td>
+                        <td>无</td>
+                    </tr>
+                </table>
+            </section>
+
+            <!-- 八、未来演进 -->
+            <section id="future" class="section">
+                <h2>八、未来演进规划</h2>
+                <table>
+                    <tr>
+                        <th>版本</th>
+                        <th>功能</th>
+                        <th>说明</th>
+                    </tr>
+                    <tr>
+                        <td>v1.0（一期）</td>
+                        <td>语音对话核心功能</td>
+                        <td>唤醒→识别→回复→播报闭环</td>
+                    </tr>
+                    <tr>
+                        <td>v1.1（二期）</td>
+                        <td>语音内容存储与回放</td>
+                        <td>历史记录、播放、导出</td>
+                    </tr>
+                    <tr>
+                        <td>v2.0</td>
+                        <td>多模态理解</td>
+                        <td>AI理解整理、结构化提取</td>
+                    </tr>
+                    <tr>
+                        <td>v2.1</td>
+                        <td>高级打断</td>
+                        <td>语义打断、选择性打断</td>
+                    </tr>
+                </table>
+            </section>
+
+            <!-- 版本记录 -->
+            <section id="version" class="section">
+                <h2>版本记录</h2>
+                <table>
+                    <tr>
+                        <th>版本</th>
+                        <th>日期</th>
+                        <th>变更内容</th>
+                        <th>作者</th>
+                    </tr>
+                    <tr>
+                        <td>v1.0</td>
+                        <td>2026-04-06</td>
+                        <td>初始版本，需求确认</td>
+                        <td>VoiceAssistant Team</td>
+                    </tr>
+                </table>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

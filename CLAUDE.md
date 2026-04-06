@@ -120,3 +120,29 @@ Test Engineer 收集 bug → 分发到相关工程师 → 修复 → [自动] De
 - [ ] 分发到正确的工程师
 - [ ] 修复并部署
 - [ ] 测试工程师验证通过
+
+---
+
+## 设计规范
+
+### Design Context
+
+**Users**: 需要即时记录灵感/日程的人群（创意工作者、职场人士），碎片化输入场景
+
+**Brand Personality**: 温暖 · 高效 · 可靠
+
+**Aesthetic Direction**: 暖色奶油风 (Warm Cream)，保持现有VoiceAssistant的UI风格一致性
+
+**Design Principles**:
+1. 即时反馈 - 每个操作都有明确的视觉/听觉反馈
+2. 状态清晰 - 5种语音状态一眼可辨
+3. 打断友好 - 用户可随时打断AI
+4. 流畅动画 - 波形动画平滑，不干扰阅读
+5. 温暖色调 - 橙色暖色系，降低认知负担
+
+### 技术栈
+- Vue 3 + TypeScript + Vite
+- Tailwind CSS v4
+- 主题色：#f97316 (orange)
+- 背景色：#fef7ed, #fff7ed
+- 字体：Inter, DM Sans

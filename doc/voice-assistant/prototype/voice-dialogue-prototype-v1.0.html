@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语音对话原型 - VoiceAssistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-bg: #fef7ed;
+            --color-bg-secondary: #fff7ed;
+            --color-primary: #f97316;
+            --color-primary-light: #fb923c;
+            --color-primary-dark: #ea580c;
+            --color-text: #292524;
+            --color-text-muted: #a8a29e;
+            --color-border: #fed7aa;
+        }
+
+        body {
+            font-family: 'DM Sans', system-ui, sans-serif;
+            background: var(--color-bg);
+            min-height: 100vh;
+        }
+
+        /* Glass Card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--color-border);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(249, 115, 22, 0.06);
+        }
+
+        /* Primary Button */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            box-shadow: 0 4px 14px rgba(249, 115, 22, 0.25);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(249, 115, 22, 0.35);
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .status-badge.listening {
+            background: rgba(249, 115, 22, 0.1);
+            color: var(--color-primary);
+        }
+
+        .status-badge.recognizing {
+            background: rgba(34, 197, 94, 0.1);
+            color: #16a34a;
+        }
+
+        .status-badge.thinking {
+            background: rgba(168, 85, 247, 0.1);
+            color: #9333ea;
+        }
+
+        .status-badge.replying {
+            background: rgba(59, 130, 246, 0.1);
+            color: #2563eb;
+        }
+
+        .status-badge.playing {
+            background: rgba(249, 115, 22, 0.15);
+            color: var(--color-primary-dark);
+        }
+
+        /* Status Dot */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-dot.active {
+            background: var(--color-primary);
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        .status-dot.listening {
+            background: #22c55e;
+            animation: pulse-glow 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4); }
+            50% { opacity: 0.7; box-shadow: 0 0 8px 4px rgba(249, 115, 22, 0); }
+        }
+
+        /* Voice Button */
+        .voice-btn {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            box-shadow: 0 8px 32px rgba(249, 115, 22, 0.3);
+            transition: all 0.25s ease;
+        }
+
+        .voice-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 40px rgba(249, 115, 22, 0.4);
+        }
+
+        .voice-btn.recording {
+            background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
+            animation: recording-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes recording-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+
+        /* Waveform Animation */
+        .waveform {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            height: 40px;
+        }
+
+        .waveform-bar {
+            width: 4px;
+            background: linear-gradient(to top, var(--color-primary), var(--color-primary-light));
+            border-radius: 2px;
+            animation: wave 1s ease-in-out infinite;
+        }
+
+        .waveform-bar:nth-child(1) { animation-delay: 0s; height: 12px; }
+        .waveform-bar:nth-child(2) { animation-delay: 0.1s; height: 24px; }
+        .waveform-bar:nth-child(3) { animation-delay: 0.2s; height: 32px; }
+        .waveform-bar:nth-child(4) { animation-delay: 0.3s; height: 20px; }
+        .waveform-bar:nth-child(5) { animation-delay: 0.4s; height: 28px; }
+        .waveform-bar:nth-child(6) { animation-delay: 0.5s; height: 16px; }
+        .waveform-bar:nth-child(7) { animation-delay: 0.6s; height: 24px; }
+        .waveform-bar:nth-child(8) { animation-delay: 0.7s; height: 36px; }
+        .waveform-bar:nth-child(9) { animation-delay: 0.8s; height: 20px; }
+
+        @keyframes wave {
+            0%, 100% { transform: scaleY(0.5); opacity: 0.6; }
+            50% { transform: scaleY(1); opacity: 1; }
+        }
+
+        .waveform.paused .waveform-bar {
+            animation-play-state: paused;
+            transform: scaleY(0.3);
+        }
+
+        /* Message Bubble */
+        .message-bubble {
+            padding: 16px 20px;
+            border-radius: 20px;
+            max-width: 80%;
+            word-break: break-word;
+        }
+
+        .message-bubble.user {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            color: white;
+            border-radius: 20px 20px 6px 20px;
+        }
+
+        .message-bubble.assistant {
+            background: white;
+            border: 1px solid var(--color-border);
+            border-radius: 20px 20px 20px 6px;
+        }
+
+        /* Subtitle */
+        .subtitle {
+            font-size: 14px;
+            color: var(--color-text-muted);
+            background: rgba(249, 115, 22, 0.05);
+            padding: 8px 16px;
+            border-radius: 12px;
+            border-left: 3px solid var(--color-primary);
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Navigation Tabs */
+        .nav-tab {
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: 500;
+            color: var(--color-text-muted);
+            transition: all 0.2s;
+        }
+
+        .nav-tab:hover {
+            background: rgba(249, 115, 22, 0.08);
+            color: var(--color-primary);
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(249, 115, 22, 0.25);
+        }
+
+        /* Focus Mode Overlay */
+        .focus-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 40;
+        }
+
+        .focus-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* State Descriptions */
+        .state-description {
+            font-size: 14px;
+            color: var(--color-text-muted);
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main App Container -->
+    <div id="app" class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="sticky top-0 z-50 px-6 py-4 bg-white/90 backdrop-blur-xl border-b border-orange-100">
+            <div class="max-w-4xl mx-auto flex items-center justify-between">
+                <h1 class="text-xl font-bold bg-gradient-to-r from-orange-500 to-orange-400 bg-clip-text text-transparent">
+                    VoiceAssistant
+                </h1>
+                <nav class="flex gap-2 p-1.5 bg-orange-50/80 rounded-xl">
+                    <button class="nav-tab active" data-page="home">首页</button>
+                    <button class="nav-tab">待办</button>
+                    <button class="nav-tab">知识库</button>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 px-6 py-8">
+            <div class="max-w-2xl mx-auto">
+                <!-- Voice Chat Card -->
+                <div class="glass-card overflow-hidden">
+                    <!-- Chat Header -->
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-orange-100">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-400 flex items-center justify-center text-white shadow-lg shadow-orange-200">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 class="font-semibold text-gray-800">语音助手</h2>
+                                <div class="flex items-center gap-2 mt-0.5">
+                                    <span class="status-dot active"></span>
+                                    <span id="statusText" class="text-sm text-gray-500">随时待命</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="statusBadge" class="status-badge">
+                            <span class="status-dot"></span>
+                            <span id="statusLabel">待命</span>
+                        </div>
+                    </div>
+
+                    <!-- Messages Area -->
+                    <div id="messagesArea" class="px-6 py-4 min-h-[400px] max-h-[50vh] overflow-y-auto space-y-4">
+                        <!-- Assistant Message -->
+                        <div class="flex gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-400 flex items-center justify-center text-white flex-shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="message-bubble assistant">
+                                    <p>你好！我是语音助手，说"小爱同学"唤醒我，或者直接点击下方按钮开始说话。</p>
+                                </div>
+                                <span class="text-xs text-gray-400 mt-1 block">刚刚</span>
+                            </div>
+                        </div>
+
+                        <!-- User Message (hidden by default) -->
+                        <div id="userMessage" class="flex gap-3 justify-end hidden">
+                            <div>
+                                <div class="message-bubble user">
+                                    <p id="userText"></p>
+                                </div>
+                                <span class="text-xs text-gray-400 mt-1 block text-right">刚刚</span>
+                            </div>
+                        </div>
+
+                        <!-- Assistant Reply (hidden by default) -->
+                        <div id="assistantReply" class="flex gap-3 hidden">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-400 flex items-center justify-center text-white flex-shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <div class="message-bubble assistant">
+                                    <p id="replyText"></p>
+                                </div>
+                                <!-- Waveform (shown when playing) -->
+                                <div id="waveformContainer" class="mt-3 waveform paused">
+                                    <div class="waveform-bar"></div>
+                                    <div class="waveform-bar"></div>
+                                    <div class="waveform-bar"></div>
+                                    <div class="waveform-bar"></div>
+                                    <div class="waveform-bar"></div>
+                                    <div class="waveform-bar"></div>
+                                    <div class="waveform-bar"></div>
+                                    <div class="waveform-bar"></div>
+                                    <div class="waveform-bar"></div>
+                                </div>
+                                <span id="replyTime" class="text-xs text-gray-400 mt-1 block">刚刚</span>
+                            </div>
+                        </div>
+
+                        <!-- Real-time Subtitle (shown when recognizing) -->
+                        <div id="subtitleContainer" class="hidden">
+                            <div class="subtitle" id="subtitleText"></div>
+                        </div>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div id="inputArea" class="px-6 py-5 bg-gradient-to-t from-orange-50/50 to-transparent">
+                        <!-- Wake Word Button -->
+                        <div id="wakeWordSection" class="flex flex-col items-center gap-3">
+                            <button id="wakeWordBtn" class="flex items-center gap-2 px-5 py-2.5 border-2 border-orange-200 rounded-xl text-orange-600 hover:border-orange-400 hover:bg-orange-50/50 transition-all">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19v3M8 22h8"/>
+                                </svg>
+                                <span class="font-medium">说"小爱同学"唤醒</span>
+                            </button>
+                            <p class="text-sm text-gray-400">或点击语音按钮直接开始</p>
+                        </div>
+
+                        <!-- Voice Button -->
+                        <div id="voiceSection" class="flex flex-col items-center gap-4 hidden">
+                            <button id="voiceBtn" class="voice-btn flex items-center justify-center text-white">
+                                <svg id="micIcon" class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+                                    <path d="M19 10v2a7 7 0 01-14 0v-2"/>
+                                    <line x1="12" y1="19" x2="12" y2="23"/>
+                                    <line x1="8" y1="23" x2="16" y2="23"/>
+                                </svg>
+                                <svg id="stopIcon" class="w-8 h-8 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <rect x="6" y="6" width="12" height="12" rx="2"/>
+                                </svg>
+                            </button>
+                            <p id="voiceHint" class="text-sm text-gray-500">点击开始说话</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- State Demo Buttons (for prototype testing) -->
+                <div class="mt-8 p-6 bg-white/80 rounded-2xl border border-orange-100">
+                    <h3 class="font-semibold text-gray-700 mb-4">状态切换演示</h3>
+                    <div class="flex flex-wrap gap-3">
+                        <button onclick="setState('idle')" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-all text-sm">待命</button>
+                        <button onclick="setState('listening')" class="px-4 py-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-all text-sm">监听中</button>
+                        <button onclick="setState('recognizing')" class="px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-all text-sm">识别中</button>
+                        <button onclick="setState('thinking')" class="px-4 py-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-all text-sm">思考中</button>
+                        <button onclick="setState('replying')" class="px-4 py-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-all text-sm">回复中</button>
+                        <button onclick="setState('playing')" class="px-4 py-2 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200 transition-all text-sm">播放中</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Focus Mode Overlay -->
+    <div id="focusOverlay" class="focus-overlay"></div>
+
+    <script>
+        // State Management
+        let currentState = 'idle';
+
+        const states = {
+            idle: {
+                badge: { class: '', label: '待命', dot: '' },
+                text: '随时待命',
+                wakeWordVisible: true,
+                voiceVisible: false,
+                messages: { user: false, assistant: false, subtitle: false }
+            },
+            listening: {
+                badge: { class: 'listening', label: '监听中', dot: 'listening' },
+                text: '等待你说话...',
+                wakeWordVisible: false,
+                voiceVisible: true,
+                voiceRecording: true,
+                voiceHint: '点击停止',
+                messages: { user: false, assistant: false, subtitle: false }
+            },
+            recognizing: {
+                badge: { class: 'recognizing', label: '识别中', dot: 'listening' },
+                text: '正在识别...',
+                wakeWordVisible: false,
+                voiceVisible: true,
+                voiceRecording: true,
+                voiceHint: '点击停止',
+                messages: { user: false, assistant: false, subtitle: true, subtitleText: '明天下午三点开会...' }
+            },
+            thinking: {
+                badge: { class: 'thinking', label: '思考中', dot: 'listening' },
+                text: 'AI正在思考...',
+                wakeWordVisible: false,
+                voiceVisible: false,
+                messages: { user: true, userText: '明天下午三点开会', assistant: false }
+            },
+            replying: {
+                badge: { class: 'replying', label: '回复中', dot: 'listening' },
+                text: 'AI正在回复...',
+                wakeWordVisible: false,
+                voiceVisible: false,
+                messages: { user: true, userText: '明天下午三点开会', assistant: true, replyText: '好的，我已经记下了。明天下午三点您有一个会议，是否需要我设置提醒？', showWaveform: false }
+            },
+            playing: {
+                badge: { class: 'playing', label: '播放中', dot: 'listening' },
+                text: '正在播报...',
+                wakeWordVisible: false,
+                voiceVisible: false,
+                messages: { user: true, userText: '明天下午三点开会', assistant: true, replyText: '好的，我已经记下了。明天下午三点您有一个会议，是否需要我设置提醒？', showWaveform: true }
+            }
+        };
+
+        function setState(stateName) {
+            currentState = stateName;
+            const state = states[stateName];
+
+            // Update status badge
+            const badge = document.getElementById('statusBadge');
+            badge.className = 'status-badge ' + state.badge.class;
+            document.getElementById('statusLabel').textContent = state.badge.label;
+
+            // Update status dot
+            const dot = badge.querySelector('.status-dot');
+            dot.className = 'status-dot ' + state.badge.dot;
+
+            // Update status text
+            document.getElementById('statusText').textContent = state.text;
+
+            // Update wake word section
+            document.getElementById('wakeWordSection').classList.toggle('hidden', !state.wakeWordVisible);
+
+            // Update voice section
+            const voiceSection = document.getElementById('voiceSection');
+            voiceSection.classList.toggle('hidden', !state.voiceVisible);
+
+            if (state.voiceRecording !== undefined) {
+                const voiceBtn = document.getElementById('voiceBtn');
+                voiceBtn.classList.toggle('recording', state.voiceRecording);
+                document.getElementById('micIcon').classList.toggle('hidden', state.voiceRecording);
+                document.getElementById('stopIcon').classList.toggle('hidden', !state.voiceRecording);
+                document.getElementById('voiceHint').textContent = state.voiceHint;
+            }
+
+            // Update messages
+            document.getElementById('userMessage').classList.toggle('hidden', !state.messages.user);
+            if (state.messages.userText) {
+                document.getElementById('userText').textContent = state.messages.userText;
+            }
+
+            const assistantReply = document.getElementById('assistantReply');
+            assistantReply.classList.toggle('hidden', !state.messages.assistant);
+            if (state.messages.replyText) {
+                document.getElementById('replyText').textContent = state.messages.replyText;
+            }
+
+            const waveform = document.getElementById('waveformContainer');
+            if (state.messages.showWaveform !== undefined) {
+                waveform.classList.toggle('paused', !state.messages.showWaveform);
+            }
+
+            const subtitleContainer = document.getElementById('subtitleContainer');
+            subtitleContainer.classList.toggle('hidden', !state.messages.subtitle);
+            if (state.messages.subtitleText) {
+                document.getElementById('subtitleText').textContent = state.messages.subtitleText;
+            }
+        }
+
+        // Voice Button Click
+        document.getElementById('voiceBtn').addEventListener('click', function() {
+            if (currentState === 'idle') {
+                setState('listening');
+            } else if (currentState === 'listening') {
+                // Stop and recognize
+                setState('recognizing');
+                // Simulate recognition delay
+                setTimeout(() => {
+                    setState('thinking');
+                    // Simulate thinking delay
+                    setTimeout(() => {
+                        setState('replying');
+                        // Simulate replying then playing
+                        setTimeout(() => {
+                            setState('playing');
+                            // Simulate end of playback
+                            setTimeout(() => {
+                                setState('idle');
+                            }, 3000);
+                        }, 1500);
+                    }, 1500);
+                }, 1500);
+            }
+        });
+
+        // Wake Word Button Click
+        document.getElementById('wakeWordBtn').addEventListener('click', function() {
+            setState('listening');
+            // Simulate auto transition
+            setTimeout(() => {
+                setState('recognizing');
+                setTimeout(() => {
+                    setState('thinking');
+                    setTimeout(() => {
+                        setState('replying');
+                        setTimeout(() => {
+                            setState('playing');
+                            setTimeout(() => {
+                                setState('idle');
+                            }, 3000);
+                        }, 1500);
+                    }, 1500);
+                }, 1500);
+            }, 2000);
+        });
+
+        // Focus Mode Support
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('sandbox') === 'true') {
+            const focus = params.get('focus');
+            if (focus) {
+                document.getElementById('focusOverlay').classList.add('active');
+                // Could highlight specific elements based on focus parameter
+            }
+        }
+
+        // Hash Routing for Pages
+        function handleHash() {
+            const hash = window.location.hash.slice(1);
+            if (hash) {
+                console.log('Navigate to:', hash);
+            }
+        }
+        window.addEventListener('hashchange', handleHash);
+        handleHash();
+    </script>
+</body>
+</html>
