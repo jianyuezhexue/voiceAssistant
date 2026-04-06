@@ -22,7 +22,7 @@ RUN npm run build
 FROM alpine:3.19
 
 # 安装 nginx
-RUN apk add --no-cache nginx ca-certificates tzdata
+RUN apk add --no-cache nginx ca-certificates tzdata curl
 
 # 设置时区
 ENV TZ=Asia/Shanghai

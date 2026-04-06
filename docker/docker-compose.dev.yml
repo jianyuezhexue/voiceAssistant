@@ -1,7 +1,5 @@
 # 开发环境专用配置
-# 使用方式: docker compose -f docker/docker-compose.dev.yml up
-
-version: "3.8"
+# 使用方式: docker compose -f docker/docker-compose.dev.yml --profile dev up -d
 
 services:
   app:
@@ -16,51 +14,37 @@ services:
     container_name: voice-assistant-dev
 
     ports:
-      - "80:80"
       - "8080:8080"
-      - "5173:5173"
+      - "8081:80"
 
     environment:
       - DEV_MODE=true
       - TZ=Asia/Shanghai
 
     volumes:
-      # 前端热更新
-      - ../frontend:/app/frontend:rw
-      - ../frontend/node_modules:/app/frontend/node_modules:rw
-
-      # 后端热更新
-      - ../backend:/app/backend:rw
-      - /root/go/bin:/root/go/bin:rw
-
-      # 日志
-      - ./logs:/app/logs
-
-    command: >
-      sh -c "
-        cd /app/frontend && npm install 2>/dev/null || true &&
-        cd /app/backend && go install github.com/air-verse/air@latest 2>/dev/null || true &&
-        /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
-      "
+      # 后端源码挂载（不影响编译产物）
+      - ../backend:/app/backend/source:rw
+      # 后端配置目录挂载
+      - ../backend/config:/app/backend/config:rw
 
     networks:
       - internal
 
   ui:
-    image: voiceassistant-ui
-    container_name: ui
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.ui
+    image: node:20-alpine
+    container_name: voiceassistant-ui-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 80"
     ports:
       - "80:80"
-    depends_on:
-      - app
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    volumes:
+      - ../frontend:/app:rw
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+    networks:
+      - internal
+
 networks:
   internal:
     driver: bridge

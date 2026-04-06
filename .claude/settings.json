@@ -1,0 +1,40 @@
+{
+  "sandbox": {
+    "enabled": false
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(npm install:*)",
+      "Bash(npm ci:*)",
+      "Bash(docker compose -f docker-compose.dev.yml up -d:*)",
+      "Bash(docker compose -f docker-compose.dev.yml restart:*)",
+      "Bash(docker compose -f docker-compose.dev.yml up --build -d:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker-compose -f docker-compose.dev.yml up -d:*)",
+      "Bash(docker-compose -f docker-compose.dev.yml restart:*)",
+      "Bash(docker-compose -f docker-compose.dev.yml up --build -d:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(curl -s http://localhost:8080/health)",
+      "Bash(curl -s http://localhost:80/health)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [{
+      "hooks": [{
+        "type": "agent",
+        "prompt": "你是一个任务路由分析专家。根据以下规则判断用户任务应该交给哪个 Agent 执行：\n\n## 角色与职责\n| 角色 | 工作目录 | 输出格式 | 核心职责 |\n|------|---------|---------|---------|\n| Product Manager (产品经理) | `doc/` | `xxxprd.md` | 分析需求，编写 PRD，协调产品专家评审 |\n| Business Architect (业务架构师) | `doc/` | `xxxTec.md` | 基于 PRD 设计技术架构，协调架构专家评审 |\n| Senior Backend Engineer | `backend/` | Go 代码 | 基于技术文档实现后端代码，遵循项目规范 |\n| Senior Frontend Engineer | `frontend/` | Vue 3 代码 | 基于技术文档实现前端 UI |\n| Senior DevOps Engineer | `docker/` | Docker 配置 | **仅通过 Docker 启动服务**，配置容器编排 |\n| Test Engineer | 项目根目录 | Bug 报告 | 收集日志、报告 bug、验证修复 |\n| Senior Product Expert | `doc/` | 评审意见 | 评审 PRD，最多 3 轮反馈 |\n| Senior Architecture Expert | `doc/` | 评审意见 | 评审技术文档，最多 3 轮反馈 |\n| DBA SQL Reviewer | - | SQL 评审 | SQL 语法、性能、安全评审 |\n\n## 触发关键词\n| 关键词 | 触发路径 | 起始角色 |\n|--------|---------|---------|\n| `新需求` / `新功能` / `new feature` | Path 1 | Product Manager |\n| `bug` / `错误` / `修复` | Path 2 | Test Engineer |\n| `PRD` / `需求文档` | Product Manager |\n| `技术架构` / `技术方案` | Business Architect |\n| `Go` / `后端` / `api` | Senior Backend Engineer |\n| `Vue` / `前端` / `页面` / `UI` | Senior Frontend Engineer |\n| `Docker` / `部署` / `容器` | Senior DevOps Engineer |\n| `SQL` / `数据库` | DBA SQL Reviewer |\n\n## 任务\n分析用户输入：$ARGUMENTS\n\n输出格式（直接输出 JSON，不要有其他内容）：\n```json\n{\n  \"routing\": \"<指派给哪个Agent，或 '主Agent直接执行'>\",\n  \"reason\": \"<1-2句话说明原因>\",\n  \"action\": \"<建议的操作，如 '启动Senior Backend Engineer'>\"\n}\n```\n\n当前项目目录：/Users/wang/code/VoiceAssistant",
+        "timeout": 30,
+        "model": "haiku"
+      }]
+    }],
+    "PostToolUse": [{
+      "matcher": "Write|Edit",
+      "hooks": [{
+        "type": "agent",
+        "prompt": "你是一个资深运维工程师，负责执行 Docker 容器编排和服务部署。\n\n当前工作目录：/Users/wang/code/VoiceAssistant\n\n请执行以下操作：\n1. 进入 docker 目录：cd /Users/wang/code/VoiceAssistant/docker\n2. 执行 docker-compose -f docker-compose.dev.yml restart\n3. 检查服务状态：docker-compose -f docker-compose.dev.yml ps\n4. 报告重启结果",
+        "timeout": 120
+      }]
+    }]
+  }
+}
