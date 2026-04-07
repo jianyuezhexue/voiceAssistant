@@ -1,10 +1,11 @@
 # 语音对话功能技术架构文档
 
-**版本**: v1.5
+**版本**: v1.6
 **创建日期**: 2026-04-06
-**修订日期**: 2026-04-06
-**状态**: 待架构专家评审（第4轮）
+**修订日期**: 2026-04-07
+**状态**: 待架构专家评审
 **关联PRD**: voice-assistant-prd-v1.0.html
+**变更说明**: v1.6 - ASR/TTS本地部署方案由CosyVoice/Qwen3-TTS替换为sherpa-onnx
 
 ---
 
@@ -44,14 +45,14 @@
 
 | 模块 | 技术方案 | 说明 |
 |------|---------|------|
-| 语音识别 (ASR) | CosyVoice Small / SenseVoice Small | 本地部署，流式输出 |
-| 语音合成 (TTS) | Qwen3-TTS | 本地部署，流式合成 |
+| 语音识别 (ASR) | sherpa-onnx (Paraformer/Whisper) | 本地部署，Go原生集成，流式输出 |
+| 语音合成 (TTS) | sherpa-onnx (VITS/EmotiVoice) | 本地部署，Go原生集成，流式合成 |
 | 语音活动检测 (VAD) | WebRTC VAD | 内置于浏览器 |
 | 音频传输 | WebRTC DataChannel | UDP传输，保证实时性 |
 | 文字传输 | WebSocket | 双向实时通信 |
 | 后端框架 | Go + Gin | 高性能HTTP服务 |
 | 前端框架 | Vue 3 + TypeScript | 响应式UI |
-| 模型服务 | 独立容器部署 | 与后端解耦 |
+| 模型服务 | 内嵌Go进程 (sherpa-onnx) | ONNX模型文件本地加载 |
 
 ### 1.3 系统组件
 
@@ -99,11 +100,17 @@
                               │ gRPC / HTTP
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Model Services (Containers)                  │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │  CosyVoice  │  │  Qwen3-TTS  │  │  LLM        │              │
-│  │  (ASR)      │  │             │  │  Service    │              │
-│  └─────────────┘  └─────────────┘  └─────────────┘              │
+│                    Model Services (Embedded)                      │
+│  ┌─────────────────────────────────────────────────────────┐     │
+│  │  sherpa-onnx (Go Library)                               │     │
+│  │  - ASR: Paraformer / Whisper (ONNX)                    │     │
+│  │  - TTS: VITS / EmotiVoice (ONNX)                       │     │
+│  │  - Models loaded from local files                       │     │
+│  └─────────────────────────────────────────────────────────┘     │
+│                           │                                      │
+│  ┌─────────────────────────────────────────────────────────┐     │
+│  │  LLM: Qwen API (dashscope - 阿里云百炼)                 │     │
+│  └─────────────────────────────────────────────────────────┘     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -133,8 +140,8 @@
 | SessionManager | 会话管理、状态维护 | Go Struct + Redis |
 | AudioBuffer | 音频数据缓冲 | Ring Buffer |
 | StreamRouter | 流式数据路由 | Channel Select |
-| ASRService | 语音识别服务封装 | CosyVoice / SenseVoice Client |
-| TTSService | 语音合成服务封装 | Qwen3-TTS Client |
+| ASRService | 语音识别服务封装 | sherpa-onnx Client (Paraformer/Whisper) |
+| TTSService | 语音合成服务封装 | sherpa-onnx Client (VITS/EmotiVoice) |
 | LLMService | 大模型服务封装 | Qwen API (dashscope) |
 | WebRTCSignaling | WebRTC信令处理 | WebSocket Signaling |
 
@@ -142,10 +149,33 @@
 
 | 服务 | 职责 | 部署方式 |
 |------|------|---------|
-| CosyVoice Small | 语音识别，流式输出 | Docker容器 |
-| SenseVoice Small | 备选ASR引擎 | Docker容器 |
-| Qwen3-TTS | 语音合成，流式输出 | Docker容器 |
+| sherpa-onnx ASR | 语音识别，流式输出 | Go内嵌库 + ONNX模型文件 |
+| sherpa-onnx TTS | 语音合成，流式输出 | Go内嵌库 + ONNX模型文件 |
 | LLM Service | 对话生成 | Qwen API (dashscope) |
+
+#### 2.3.1 sherpa-onnx 方案说明
+
+**sherpa-onnx** 是 k2-fsa 开源的轻量级语音识别/合成库，基于 ONNX 模型推理。
+
+**优势**:
+- 纯 Go 实现，与后端无缝集成
+- 无需独立 Docker 容器，简化部署
+- 支持流式 ASR/TTS，低延迟
+- 多模型支持：Paraformer、Whisper（ASR）；VITS、EmotiVoice（TTS）
+- 模型文件独立管理，便于更新升级
+
+**ASR 支持模型**:
+| 模型 | 语言 | 特点 |
+|------|------|------|
+| Paraformer | 中文/英文 | 精度高，模型适中 |
+| Whisper | 多语言 | 鲁棒性强 |
+| CTC | 中文 | 轻量级 |
+
+**TTS 支持模型**:
+| 模型 | 语言 | 特点 |
+|------|------|------|
+| VITS | 中文/英文 | 音质好，流式合成 |
+| EmotiVoice | 中文 | 情感丰富 |
 
 ### 2.4 LLM API调用方案 (Qwen API)
 
@@ -414,19 +444,22 @@ func (dc *AudioDataChannel) SendTTSAudio(pcmData []byte, timestamp int64, isLast
 │           ▼                    ▼                    ▼
 │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐
 │  │   ASRService   │  │   LLMService   │  │   TTSService   │
-│  │  (CosyVoice)   │  │  (OpenAI API)  │  │  (Qwen3-TTS)   │
+│  │(sherpa-onnx)   │  │  (Qwen API)   │  │(sherpa-onnx)   │
 │  └────────────────┘  └────────────────┘  └────────────────┘
 │           │                    │                    │
 └───────────│────────────────────│────────────────────│──────────────────
             │ gRPC               │ HTTP               │ gRPC
             ▼                    ▼                    ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                         MODEL SERVICES (Docker)                          │
-│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐               │
-│  │  CosyVoice   │   │  Qwen API    │   │  Qwen3-TTS   │               │
-│  │  Small       │   │ (dashscope)  │   │              │               │
-│  │  :8001      │   │   外部服务     │   │   :8003      │               │
-│  └──────────────┘   └──────────────┘   └──────────────┘               │
+│                      MODEL SERVICES (Embedded in Backend)                  │
+│  ┌────────────────────────────────┐   ┌──────────────┐                    │
+│  │       sherpa-onnx              │   │  Qwen API    │                    │
+│  │  ┌──────────┐ ┌──────────────┐ │   │(dashscope)   │                    │
+│  │  │ASR: Para- │ │TTS: VITS     │ │   │  外部服务     │                    │
+│  │  │former    │ │EmotiVoice    │ │   └──────────────┘                    │
+│  │  └──────────┘ └──────────────┘ │                                      │
+│  │  ONNX models (local files)     │                                      │
+│  └────────────────────────────────┘                                      │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -499,15 +532,16 @@ func (dc *AudioDataChannel) SendTTSAudio(pcmData []byte, timestamp int64, isLast
 │           ▼                ▼                ▼                    │
 │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐           │
 │  │ ASR Client  │   │ LLM Client  │   │ TTS Client  │           │
-│  │ (CosyVoice) │   │ (Qwen API)  │   │ (Qwen3-TTS) │           │
+│  │(sherpa-onnx)│   │ (Qwen API)  │   │(sherpa-onnx)│           │
 │  └─────────────┘   └─────────────┘   └─────────────┘           │
 │           │                │                │                    │
 └───────────│────────────────│────────────────│────────────────────┘
             │                │                │
             ▼                ▼                ▼
       ┌───────────┐    ┌───────────┐    ┌───────────┐
-      │CosyVoice  │    │Qwen API   │    │Qwen3-TTS │
-      │:8001      │    │(外部)      │    │:8003     │
+      │sherpa-onnx│    │Qwen API   │    │sherpa-onnx│
+      │ASR        │    │(外部)      │    │TTS        │
+      │(内嵌)      │    │           │    │(内嵌)      │
       └───────────┘    └───────────┘    └───────────┘
 ```
 
@@ -987,9 +1021,9 @@ backend/
 │   ├── llm/
 │   │   └── client.go           # Qwen API HTTP Client
 │   ├── asr/
-│   │   └── client.go           # CosyVoice gRPC Client
+│   │   └── client.go           # sherpa-onnx ASR Client (Go原生)
 │   ├── tts/
-│   │   └── client.go           # Qwen3-TTS gRPC Client
+│   │   └── client.go           # sherpa-onnx TTS Client (Go原生)
 │   ├── webrtc/
 │   │   └── datachannel.go      # WebRTC DataChannel 服务端封装
 │   └── redis/
@@ -2279,7 +2313,7 @@ Protocol: UDP-like (WebRTC DataChannel)
 │                                              │                                      │
 │                                              │ streaming results                    │
 │                                              ▼                                      │
-│                                       [CosyVoice ASR]                               │
+│                                    [sherpa-onnx ASR (Paraformer)]                   │
 │                                              │                                      │
 │                                              │ final text                           │
 │                                              ▼                                      │
@@ -2293,7 +2327,7 @@ Protocol: UDP-like (WebRTC DataChannel)
 │                                              │                                      │
 │                                              │ full text                            │
 │                                              ▼                                      │
-│                                       [TTS Service]                                │
+│                                    [TTS Service (sherpa-onnx VITS)]                      │
 │                                              │                                      │
 │                                              │ streaming audio                      │
 │                                              ▼                                      │
@@ -2349,8 +2383,8 @@ Protocol: UDP-like (WebRTC DataChannel)
 │         │                         │ 16bit mono            │ 16bit mono         │
 │         ▼                        ▼                        ▼                     │
 │  ┌──────────────┐         ┌──────────────┐         ┌──────────────┐            │
-│  │ Qwen3-TTS    │────────▶│ DataChannel  │────────▶│ AudioBuffer  │            │
-│  │              │         │ (UDP-like)   │         │ SourceNode   │            │
+│  │sherpa-onnx   │────────▶│ DataChannel  │────────▶│ AudioBuffer  │            │
+│  │TTS (VITS)   │         │ (UDP-like)   │         │ SourceNode   │            │
 │  └──────────────┘         └──────────────┘         └──────┬───────┘            │
 │                                                            │                     │
 │                                                            ▼                     │
@@ -2374,7 +2408,7 @@ Protocol: UDP-like (WebRTC DataChannel)
 │         ▼                        ▼                        ▼                     │
 │  ┌──────────────┐         ┌──────────────┐         ┌──────────────┐            │
 │  │ ASR Engine   │────────▶│ WS Message   │────────▶│ Session      │            │
-│  │ (CosyVoice) │  text   │ asr_result   │  text   │ Manager      │            │
+│  │(sherpa-onnx) │  text   │ asr_result   │  text   │ Manager      │            │
 │  └──────────────┘         └──────────────┘         └──────┬───────┘            │
 │                                                            │                     │
 │                                                            ▼                     │
@@ -2674,6 +2708,8 @@ services:
 
 ### 13.1 Docker容器布局
 
+**架构说明**: 使用 sherpa-onnx 内嵌 Go 库方式部署 ASR/TTS，无需独立模型服务容器。
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Docker Compose                            │
@@ -2683,16 +2719,23 @@ services:
 │  │  :3000      │  │   :8080     │  │   :3306     │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 │                                                                  │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │ cosyvoice   │  │  qwen3-tts  │  │   redis     │              │
-│  │  :8001      │  │   :8003     │  │   :6379     │              │
-│  └─────────────┘  └─────────────┘  └─────────────┘              │
+│  ┌─────────────┐                                                 │
+│  │   redis     │                                                 │
+│  │   :6379     │                                                 │
+│  └─────────────┘                                                 │
 │                                                                  │
 │  ════════════════════════════════════════════════════════════   │
 │                        外部服务 (不通过Docker部署)                  │
 │  ┌─────────────┐                                                 │
 │  │ Qwen API    │  (dashscope - 阿里云百炼)                        │
 │  │  (qwen-plus)│                                                 │
+│  └─────────────┘                                                 │
+│                                                                  │
+│  ════════════════════════════════════════════════════════════   │
+│                        模型文件 (本地存储)                          │
+│  ┌─────────────┐                                                 │
+│  │ ONNX Models │  ASR: paraformer.zip, Whisper.zip              │
+│  │ (挂载到容器) │  TTS: vits.zip, emtivvoice.zip               │
 │  └─────────────┘                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -2722,6 +2765,8 @@ CMD ["./server"]
 
 #### 13.2.2 docker-compose.yml (Voice Dialogue部分)
 
+**注意**: sherpa-onnx 使用 Go 内嵌库方式集成 ASR/TTS，无需独立模型服务容器。
+
 ```yaml
 services:
   backend:
@@ -2730,16 +2775,15 @@ services:
       - "8080:8080"
     environment:
       - CONFIG_PATH=/app/config/config.yaml
-      - ASR_HOST=cosyvoice:8001
-      - TTS_HOST=qwen3-tts:8003
+      # sherpa-onnx 使用内嵌Go库，无需ASR_HOST/TTS_HOST配置
+      # 模型文件通过 volumes 挂载到容器
       # LLM使用Qwen API（外部服务），通过配置获取API Key和BaseURL
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
       - LLM_MODEL=qwen-plus
+    volumes:
+      # 挂载ONNX模型文件
+      - ./models:/app/models:ro
     depends_on:
-      cosyvoice:
-        condition: service_healthy
-      qwen3-tts:
-        condition: service_healthy
       mysql:
         condition: service_started
       redis:
@@ -2748,9 +2792,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 4G
         reservations:
-          memory: 1G
+          memory: 2G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -2758,45 +2802,10 @@ services:
       retries: 3
       start_period: 40s
 
-  cosyvoice:
-    image: cosyvoice/small:latest
-    ports:
-      - "8001:8001"
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-          cpus: '2'
-        reservations:
-          memory: 2G
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  qwen3-tts:
-    image: qwen3-tts/small:latest
-    ports:
-      - "8003:8003"
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-          cpus: '2'
-        reservations:
-          memory: 2G
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  # 注意：LLM使用Qwen API（外部服务），无需在docker-compose中部署
+  # 注意：
+  # 1. sherpa-onnx ASR/TTS 已内嵌到后端Go进程中，无需独立容器
+  # 2. LLM使用Qwen API（外部服务），无需在docker-compose中部署
+  # 3. ONNX模型文件通过 volumes 挂载到 backend 容器
 
   mysql:
     image: mysql:8.0
@@ -2837,16 +2846,153 @@ volumes:
 
 ### 13.3 端口映射
 
-| 服务 | 容器端口 | 主机端口 | 协议 | 容器间通信端口 |
-|------|---------|---------|------|---------------|
-| frontend | 3000 | 3000 | HTTP | - |
-| backend | 8080 | 8080 | HTTP/WSS | - |
-| mysql | 3306 | 3306 | TCP | 3306 |
-| redis | 6379 | 6379 | TCP | 6379 |
-| cosyvoice | 8001 | 8001 | gRPC | 8001 |
-| qwen3-tts | 8003 | 8003 | gRPC | 8003 |
+| 服务 | 容器端口 | 主机端口 | 协议 | 说明 |
+|------|---------|---------|------|------|
+| frontend | 3000 | 3000 | HTTP | Vue3前端 |
+| backend | 8080 | 8080 | HTTP/WSS | Go后端（含sherpa-onnx） |
+| mysql | 3306 | 3306 | TCP | MySQL数据库 |
+| redis | 6379 | 6379 | TCP | Redis缓存 |
 
-**注意**: LLM使用Qwen API（外部服务），无需在Docker中部署。backend通过环境变量`DASHSCOPE_API_KEY`配置API认证。
+**说明**:
+- **sherpa-onnx ASR/TTS**: 内嵌于 backend 进程，无需独立端口
+- **LLM**: 使用 Qwen API（外部服务），无需在Docker中部署
+- **ONNX模型文件**: 通过 volumes 挂载到 backend 容器
+
+### 13.4 sherpa-onnx 配置
+
+#### 13.4.1 Go 依赖
+
+```bash
+go get github.com/k2-fsa/sherpa-onnx-go/...
+```
+
+#### 13.4.2 ONNX 模型文件
+
+**模型文件目录结构**:
+```
+models/
+├── asr/
+│   ├── paraformer/
+│   │   ├── model.onnx          # Paraformer ASR 模型
+│   │   └── tokens.json         # 词表文件
+│   └── whisper/
+│       ├── model.onnx          # Whisper ASR 模型
+│       └── tokens.json
+└── tts/
+    ├── vits/
+    │   ├── model.onnx          # VITS TTS 模型
+    │   ├── lexicon.txt         # 词典文件
+    │   └── speakers.txt        # 说话人列表
+    └── emotivpeech/
+        ├── model.onnx          # EmotiVoice TTS 模型
+        └── ...
+```
+
+#### 13.4.3 后端配置 (config.yaml)
+
+```yaml
+asr:
+  provider: sherpa-onnx
+  model_type: paraformer  # 或 whisper
+  model_path: /app/models/asr/paraformer/model.onnx
+  tokens_path: /app/models/asr/paraformer/tokens.json
+  num_threads: 4
+
+tts:
+  provider: sherpa-onnx
+  model_type: vits  # 或 emotivpeech
+  model_path: /app/models/tts/vits/model.onnx
+  lexicon_path: /app/models/tts/vits/lexicon.txt
+  speakers_path: /app/models/tts/vits/speakers.txt
+  num_threads: 4
+```
+
+#### 13.4.4 Go 代码示例
+
+```go
+// component/asr/client.go
+package asr
+
+import (
+    "context"
+    sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
+)
+
+// ASRClient sherpa-onnx ASR 客户端
+type ASRClient struct {
+    recognizer *sherpa.Recognizer
+}
+
+// NewASRClient 创建 ASR 客户端
+func NewASRClient(cfg *ASRConfig) (*ASRClient, error) {
+    recognizer, err := sherpa.NewRecognizer(&sherpa.RecognizerConfig{
+        ModelConfig: sherpa.ModelConfig{
+            Model:  cfg.ModelPath,
+            Tokens: cfg.TokensPath,
+        },
+        EnableEndpoint: true,
+        Rule1MinTrailingSilence: 0.3,
+        Rule2MinTrailingSilence: 0.6,
+        Rule3MinTrailingSilence: 1.0,
+    })
+    if err != nil {
+        return nil, err
+    }
+    return &ASRClient{recognizer: recognizer}, nil
+}
+
+// StreamRecognize 流式识别
+func (c *ASRClient) StreamRecognize(ctx context.Context, audioReader io.Reader) (<-chan *ASRResult, error) {
+    resultCh := make(chan *ASRResult, 100)
+    go func() {
+        defer close(resultCh)
+        // 流式识别实现...
+    }()
+    return resultCh, nil
+}
+```
+
+```go
+// component/tts/client.go
+package tts
+
+import (
+    "context"
+    sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
+)
+
+// TTSClient sherpa-onnx TTS 客户端
+type TTSClient struct {
+    synthesizer *sherpa.Synthesizer
+}
+
+// NewTTSClient 创建 TTS 客户端
+func NewTTSClient(cfg *TTSConfig) (*TTSClient, error) {
+    synthesizer, err := sherpa.NewSynthesizer(&sherpa.SynthesizerConfig{
+        ModelConfig: sherpa.ModelConfig{
+            Model:  cfg.ModelPath,
+        },
+        VitsConfig: &sherpa.VitsConfig{
+            Lexicon:  cfg.LexiconPath,
+            DataDir:  cfg.SpeakersPath,
+        },
+    })
+    if err != nil {
+        return nil, err
+    }
+    return &TTSClient{synthesizer: synthesizer}, nil
+}
+
+// StreamSynthesize 流式合成
+func (c *TTSClient) StreamSynthesize(ctx context.Context, text string) (<-chan *TTSAudio, error) {
+    audioCh := make(chan *TTSAudio, 100)
+    go func() {
+        defer close(audioCh)
+        // 流式合成实现...
+    }()
+    return audioCh, nil
+}
+```
 
 ---
 
@@ -2860,6 +3006,7 @@ volumes:
 | v1.4 | 2026-04-06 | Business Architect | 优化唤醒词检测架构：<br>- 改为前端独立方案，移除后端验证步骤<br>- 唤醒成功后建立WebSocket+DataChannel连接<br>- 连接成功后Alert提醒"连接成功，开启对话"<br>- 用户结束对话后Alert提醒"对话已结束，连接已关闭" |
 | v1.5 | 2026-04-06 | Business Architect | 后端分层规范重构：<br>- 移除service层，统一使用logic层做业务编排<br>- 更新目录结构：api/component/domain/logic/config/router<br>- 明确各层职责：api(入口)、component(技术封装)、domain(领域模型)、logic(业务编排)<br>- Component vs Logic区分：component只做SDK调用，logic实现业务逻辑 |
 | v1.3 | 2026-04-06 | Business Architect | 补充技术架构设计：<br>- 新增2.5节：Go WebRTC库推荐（pion/webrtc）<br>- 新增6.4节：全双工通信通道设计（双通道架构、WebSocket+DataChannel）<br>- 新增6.5节：UDP乱序处理方案（时间戳+序列号机制） |
+| v1.6 | 2026-04-07 | Business Architect | ASR/TTS本地部署方案替换为sherpa-onnx：<br>- 移除CosyVoice/SenseVoice，改为sherpa-onnx Paraformer/Whisper<br>- 移除Qwen3-TTS，改为sherpa-onnx VITS/EmotiVoice<br>- 删除cosyvoice和qwen3-tts独立Docker容器<br>- sherpa-onnx作为Go内嵌库集成，无需独立服务<br>- 新增13.4节：sherpa-onnx配置说明和ONNX模型文件管理<br>- 更新端口映射表格，移除cosyvoice/qwen3-tts端口<br>- 更新参考文献，添加sherpa-onnx链接 |
 
 ---
 
@@ -2867,9 +3014,8 @@ volumes:
 
 ### A.1 参考文献
 
-- [CosyVoice GitHub](https://github.com/Sxdlj/CosyVoice)
-- [SenseVoice](https://www.modelscope.cn/models/iic/sensevoice)
-- [Qwen3-TTS](https://qwenlm.github.io/)
+- [sherpa-onnx (Go API)](https://k2-fsa.github.io/sherpa/onnx/go-api/index.html)
+- [sherpa-onnx (GitHub)](https://github.com/k2-fsa/sherpa-onnx)
 - [Qwen (DashScope API)](https://dashscope.console.aliyun.com/)
 - [WebRTC VAD](https://chromium.googlesource.com/external/webrtc/+/master/modules/audio_processing/vad/)
 - [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
@@ -2891,5 +3037,5 @@ volumes:
 
 ---
 
-**文档状态**: 待架构专家评审（第3轮）
-**评审轮次**: 第3轮
+**文档状态**: 待架构专家评审
+**评审轮次**: 新变更（v1.6）

@@ -54,7 +54,12 @@ func (a *ASR) Handle(ctx *gin.Context) {
 	log.Printf("[ASR] New client connected")
 
 	// 创建 ASR 客户端
-	client := asrComponent.NewClient(token, appKey)
+	client, err := asrComponent.NewClient(token, appKey)
+	if err != nil {
+		log.Printf("[ASR] Create client error: %v", err)
+		conn.WriteMessage(websocket.TextMessage, []byte(`{"error":"Failed to create ASR client: `+err.Error()+`"}`))
+		return
+	}
 
 	// 启动识别
 	err = client.Start(func(text string) {

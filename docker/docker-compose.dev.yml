@@ -5,8 +5,7 @@ services:
   app:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
-      target: runtime
+      dockerfile: docker/Dockerfile.app
 
     container_name: voice-assistant-dev
 

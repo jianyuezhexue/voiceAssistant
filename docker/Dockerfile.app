@@ -9,11 +9,10 @@ WORKDIR /app
 # 设置 Go 代理（解决国内网络问题）
 ENV GOPROXY=https://goproxy.cn,direct
 
-# 安装依赖
-COPY backend/go.mod backend/go.sum ./
-RUN go mod download
+# 安装 git（go mod download 需要）
+RUN apk add --no-cache git
 
-# 复制源码和 vendor 目录
+# 复制源码和 vendor 目录（使用 vendor 模式构建，无需 go mod download）
 COPY backend/ ./
 
 # 编译 Go 程序（使用 vendor）

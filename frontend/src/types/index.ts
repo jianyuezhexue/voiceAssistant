@@ -1,3 +1,5 @@
+// ==================== 通用 API 类型 ====================
+
 export interface Todo {
   id: number;
   title: string;
@@ -28,3 +30,29 @@ export interface ASRMessage {
   type?: 'transcript' | 'todo' | 'knowledge';
   data?: Todo | Knowledge;
 }
+
+// ==================== 语音对话类型（重新导出） ====================
+
+export {
+  VoiceState,
+  InterruptSource,
+  MessageType
+} from './voice';
+
+export type {
+  AudioConfig,
+  VoiceMessage,
+  ASRResult,
+  LLMResponse,
+  TTSAudio,
+  InterruptEvent,
+  VoiceSession,
+  WSClientMessage,
+  WSServerMessage,
+  DCMessage,
+  WakeWordConfig,
+  VADConfig,
+  PerformanceMetrics,
+  StateTransitionEvent,
+  StateTransitionRule
+} from './voice';

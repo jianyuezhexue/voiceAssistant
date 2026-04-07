@@ -8,27 +8,71 @@ services:
     container_name: app
     build:
       context: ..
-      dockerfile: docker/Dockerfile.app
+      dockerfile: docker/Dockerfile
+      target: runtime
     ports:
       - "8080:8080"
+    environment:
+      - DEV_MODE=true
+      - TZ=Asia/Shanghai
+      # LLM 配置
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-your-api-key-here}
+      - LLM_MODEL=qwen-plus
+      # Redis 配置
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379/0
+      # WebRTC 配置
+      - STUN_SERVER=stun:stun.l.google.com:19302
+      - TURN_SERVER=${TURN_SERVER:-}
+    volumes:
+      - ../backend:/app/backend/source:rw
+      - ../backend/config:/app/backend/config:rw
+    depends_on:
+      - redis
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - internal
 
   ui:
-    image: voiceassistant-ui
-    container_name: ui
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.ui
+    image: node:20-alpine
+    container_name: voiceassistant-ui
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 80"
     ports:
       - "80:80"
+    volumes:
+      - ../frontend:/app:rw
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_API_BASE_URL=http://app:8080
+      - VITE_WS_URL=ws://app:8080
     depends_on:
       - app
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    container_name: voiceassistant-redis
+    ports:
+      - "6379:6379"
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  redis_data:

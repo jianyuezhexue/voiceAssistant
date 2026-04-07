@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"voice-assistant/backend/component/db"
@@ -10,10 +11,7 @@ import (
 
 func main() {
 	// 加载配置
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatalf("加载配置失败: %v", err)
-	}
+	cfg := config.LoadConfig()
 
 	// 初始化数据库
 	db.Init(db.Config{
@@ -24,11 +22,12 @@ func main() {
 	// redis.Init(&cfg.Redis)
 
 	// 初始化路由
-	r := router.Setup(cfg.Server.Mode)
+	r := router.Setup(cfg.Server.Mode, cfg)
 
 	// 启动服务
-	log.Printf("服务启动在 :%s", cfg.Server.Port)
-	if err := r.Run(":" + cfg.Server.Port); err != nil {
+	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+	log.Printf("服务启动在 %s", addr)
+	if err := r.Run(addr); err != nil {
 		log.Fatalf("服务启动失败: %v", err)
 	}
 }

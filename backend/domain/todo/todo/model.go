@@ -19,7 +19,7 @@ type TodoEntity struct {
 	Content   string `gorm:"type:text" json:"content"`
 	Status    string `gorm:"size:20;default:pending" json:"status"` // pending, completed
 	Source    string `gorm:"size:50" json:"source"`                 // voice, manual
-	MeetingID *uint  `json:"meeting_id"`                             // 关联会议
+	MeetingID *uint  `json:"meeting_id"`                            // 关联会议
 }
 
 // TableName 数据表名

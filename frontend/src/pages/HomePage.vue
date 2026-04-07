@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onUnmounted, nextTick, watch, onMounted } from 'vue';
-import { asrService } from '../services/ws';
+import { voiceWS as asrService } from '../services/ws';
 import type { ASRMessage } from '../types';
 
 const textInput = ref('');

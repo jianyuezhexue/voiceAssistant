@@ -18,12 +18,12 @@ type UpdateTodo struct {
 
 // SearchTodo 搜索待办 DTO
 type SearchTodo struct {
-	ID        uint   `json:"id" search:"type:eq;column:id;table:todos"`
-	Page      int64  `json:"page" search:"page"`
-	PageSize  int64  `json:"page_size" search:"pageSize"`
-	Status    string `json:"status" search:"type:eq;column:status;table:todos"`
-	Source    string `json:"source" search:"type:eq;column:source;table:todos"`
-	Title     string `json:"title" search:"type:like;column:title;table:todos"`
+	ID        uint     `json:"id" search:"type:eq;column:id;table:todos"`
+	Page      int64    `json:"page" search:"page"`
+	PageSize  int64    `json:"page_size" search:"pageSize"`
+	Status    string   `json:"status" search:"type:eq;column:status;table:todos"`
+	Source    string   `json:"source" search:"type:eq;column:source;table:todos"`
+	Title     string   `json:"title" search:"type:like;column:title;table:todos"`
 	CreatedAt []string `json:"created_at" search:"type:between;column:created_at;table:todos"`
 }
 

@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"voice-assistant/backend/config"
@@ -15,7 +14,7 @@ var Client *redis.Client
 // Init 初始化 Redis 连接
 func Init(cfg *config.RedisConfig) {
 	Client = redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+		Addr:     cfg.Addr,
 		Password: cfg.Password,
 		DB:       cfg.DB,
 	})

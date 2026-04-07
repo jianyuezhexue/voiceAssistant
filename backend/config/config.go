@@ -2,87 +2,184 @@ package config
 
 import (
 	"os"
-
-	"gopkg.in/yaml.v3"
+	"strconv"
+	"time"
 )
 
-// Config 应用配置结构
+// Config 全局配置
 type Config struct {
-	Server   ServerConfig   `yaml:"server"`
-	Database DatabaseConfig `yaml:"database"`
-	Redis    RedisConfig    `yaml:"redis"`
-	Milvus   MilvusConfig   `yaml:"milvus"`
-	ASR      ASRConfig      `yaml:"asr"`
-	LLM      LLMConfig      `yaml:"llm"`
-}
-
-// ServerConfig 服务器配置
-type ServerConfig struct {
-	Port string `yaml:"port"`
-	Mode string `yaml:"mode"`
+	Server   ServerConfig
+	Database DatabaseConfig
+	LLM      LLMConfig
+	ASR      ASRConfig
+	TTS      TTSConfig
+	WebRTC   WebRTCConfig
+	Redis    RedisConfig
+	Session  SessionConfig
 }
 
 // DatabaseConfig 数据库配置
 type DatabaseConfig struct {
-	MySQL MySQLConfig `yaml:"mysql"`
+	MySQL MySQLConfig
 }
 
 // MySQLConfig MySQL 配置
 type MySQLConfig struct {
-	Source string `yaml:"source"`
-	// Host     string `yaml:"host"`
-	// Port     int    `yaml:"port"`
-	// User     string `yaml:"user"`
-	// Password string `yaml:"password"`
-	// Database string `yaml:"database"`
+	Source string
+}
+
+// ServerConfig 服务器配置
+type ServerConfig struct {
+	Mode string
+	Host string
+	Port int
+}
+
+// LLMConfig LLM 配置
+type LLMConfig struct {
+	APIKey      string
+	Model       string
+	BaseURL     string
+	MaxTokens   int
+	Temperature float64
+	TopP        float64
+	Timeout     time.Duration
+}
+
+// ASRConfig ASR 配置 (sherpa-onnx 本地模型)
+type ASRConfig struct {
+	ModelPath  string        // 模型路径 (paraformer.onnx)
+	TokensPath string        // 词表路径 (tokens.json)
+	SampleRate int           // 采样率 (默认16000)
+	Threshold  float32       // VAD阈值 (默认0.5)
+	Timeout    time.Duration // 超时时间
+}
+
+// TTSConfig TTS 配置 (sherpa-onnx 本地模型)
+type TTSConfig struct {
+	ModelPath    string        // 模型路径 (vits.onnx)
+	LexiconPath  string        // 词典路径 (lexicon.txt)
+	SpeakersPath string        // 说话人路径 (speakers.txt)
+	SampleRate   int           // 采样率 (默认24000)
+	Speed        float32       // 语速 (默认1.0)
+	Timeout      time.Duration // 超时时间
+}
+
+// WebRTCConfig WebRTC 配置
+type WebRTCConfig struct {
+	STUNServer string
 }
 
 // RedisConfig Redis 配置
 type RedisConfig struct {
-	Host     string `yaml:"host"`
-	Port     int    `yaml:"port"`
-	Password string `yaml:"password"`
-	DB       int    `yaml:"db"`
+	Addr     string
+	Password string
+	DB       int
 }
 
-// MilvusConfig Milvus 配置
-type MilvusConfig struct {
-	Host string `yaml:"host"`
-	Port string `yaml:"port"`
+// SessionConfig 会话配置
+type SessionConfig struct {
+	Timeout time.Duration
 }
 
-// ASRConfig 语音识别配置
-type ASRConfig struct {
-	Provider        string `yaml:"provider"`
-	AppKey          string `yaml:"app_key"`
-	AccessKeyID     string `yaml:"access_key_id"`
-	AccessKeySecret string `yaml:"access_key_secret"`
-}
+// 全局配置实例
+var GlobalConfig *Config
 
-// LLMConfig 大模型配置
-type LLMConfig struct {
-	Provider string `yaml:"provider"`
-	APIKey   string `yaml:"api_key"`
-	Model    string `yaml:"model"`
-	BaseURL  string `yaml:"base_url"`
-}
-
-// Load 加载配置文件
-func Load() (*Config, error) {
-	configPath := os.Getenv("CONFIG_PATH")
-	if configPath == "" {
-		configPath = "config/config.yaml"
+// LoadConfig 加载配置
+func LoadConfig() *Config {
+	GlobalConfig = &Config{
+		Server: ServerConfig{
+			Mode: getEnv("GIN_MODE", "debug"),
+			Host: getEnv("SERVER_HOST", "0.0.0.0"),
+			Port: getEnvInt("SERVER_PORT", 8080),
+		},
+		Database: DatabaseConfig{
+			MySQL: MySQLConfig{
+				Source: getEnv("MYSQL_SOURCE", "root:root@tcp(localhost:3306)/voice_assistant?charset=utf8mb4&parseTime=True&loc=Local"),
+			},
+		},
+		LLM: LLMConfig{
+			APIKey:      getEnv("DASHSCOPE_API_KEY", ""),
+			Model:       getEnv("LLM_MODEL", "qwen-plus"),
+			BaseURL:     getEnv("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+			MaxTokens:   getEnvInt("LLM_MAX_TOKENS", 2000),
+			Temperature: getEnvFloat("LLM_TEMPERATURE", 0.7),
+			TopP:        getEnvFloat("LLM_TOP_P", 0.8),
+			Timeout:     getEnvDuration("LLM_TIMEOUT", 30*time.Second),
+		},
+		ASR: ASRConfig{
+			ModelPath:  getEnv("ASR_MODEL_PATH", "./models/paraformer.onnx"),
+			TokensPath: getEnv("ASR_TOKENS_PATH", "./models/tokens.json"),
+			SampleRate: getEnvInt("ASR_SAMPLE_RATE", 16000),
+			Threshold:  float32(getEnvFloat("ASR_THRESHOLD", 0.5)),
+			Timeout:    getEnvDuration("ASR_TIMEOUT", 10*time.Second),
+		},
+		TTS: TTSConfig{
+			ModelPath:    getEnv("TTS_MODEL_PATH", "./models/vits.onnx"),
+			LexiconPath:  getEnv("TTS_LEXICON_PATH", "./models/lexicon.txt"),
+			SpeakersPath: getEnv("TTS_SPEAKERS_PATH", "./models/speakers.txt"),
+			SampleRate:   getEnvInt("TTS_SAMPLE_RATE", 24000),
+			Speed:        float32(getEnvFloat("TTS_SPEED", 1.0)),
+			Timeout:      getEnvDuration("TTS_TIMEOUT", 30*time.Second),
+		},
+		WebRTC: WebRTCConfig{
+			STUNServer: getEnv("STUN_SERVER", "stun:stun.l.google.com:19302"),
+		},
+		Redis: RedisConfig{
+			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
+			Password: getEnv("REDIS_PASSWORD", ""),
+			DB:       getEnvInt("REDIS_DB", 0),
+		},
+		Session: SessionConfig{
+			Timeout: getEnvDuration("SESSION_TIMEOUT", 30*time.Minute),
+		},
 	}
 
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, err
-	}
+	return GlobalConfig
+}
 
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, err
+// getEnv 获取环境变量字符串
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
+	return defaultValue
+}
 
-	return &cfg, nil
+// getEnvInt 获取环境变量整数
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intVal, err := strconv.Atoi(value); err == nil {
+			return intVal
+		}
+	}
+	return defaultValue
+}
+
+// getEnvFloat 获取环境变量浮点数
+func getEnvFloat(key string, defaultValue float64) float64 {
+	if value := os.Getenv(key); value != "" {
+		if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+			return floatVal
+		}
+	}
+	return defaultValue
+}
+
+// getEnvDuration 获取环境变量时间间隔
+func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return defaultValue
+}
+
+// GetConfig 获取全局配置
+func GetConfig() *Config {
+	if GlobalConfig == nil {
+		return LoadConfig()
+	}
+	return GlobalConfig
 }

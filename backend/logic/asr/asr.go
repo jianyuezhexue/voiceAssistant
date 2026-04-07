@@ -14,8 +14,8 @@ type ASRLogic struct {
 
 // ASRResult ASR 识别结果
 type ASRResult struct {
-	Text      string                 `json:"text"`
-	Todos     []todo.CreateTodo      `json:"todos"`
+	Text      string                      `json:"text"`
+	Todos     []todo.CreateTodo           `json:"todos"`
 	Knowledge []knowledge.CreateKnowledge `json:"knowledge"`
 }
 
