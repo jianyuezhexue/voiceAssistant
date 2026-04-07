@@ -33,3 +33,5 @@ go.work.sum
 backend/config/config.yaml
 .mcp.json
 .setting/mcp-mysql.log
+backend/__debug_bin*
+backend/backend

@@ -1,85 +1,92 @@
 package config
 
 import (
+	"fmt"
 	"os"
-	"strconv"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Config 全局配置
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	LLM      LLMConfig
-	ASR      ASRConfig
-	TTS      TTSConfig
-	WebRTC   WebRTCConfig
-	Redis    RedisConfig
-	Session  SessionConfig
+	Server   ServerConfig   `yaml:"server"`
+	Database DatabaseConfig `yaml:"database"`
+	LLM      LLMConfig      `yaml:"llm"`
+	ASR      ASRConfig      `yaml:"asr"`
+	TTS      TTSConfig      `yaml:"tts"`
+	WebRTC   WebRTCConfig   `yaml:"webrtc"`
+	Redis    RedisConfig    `yaml:"redis"`
+	Session  SessionConfig  `yaml:"session"`
 }
 
 // DatabaseConfig 数据库配置
 type DatabaseConfig struct {
-	MySQL MySQLConfig
+	MySQL MySQLConfig `yaml:"mysql"`
 }
 
 // MySQLConfig MySQL 配置
 type MySQLConfig struct {
-	Source string
+	Source string `yaml:"source"`
 }
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Mode string
-	Host string
-	Port int
+	Mode string `yaml:"mode"`
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
 }
 
 // LLMConfig LLM 配置
 type LLMConfig struct {
-	APIKey      string
-	Model       string
-	BaseURL     string
-	MaxTokens   int
-	Temperature float64
-	TopP        float64
-	Timeout     time.Duration
+	APIKey      string        `yaml:"api_key"`
+	Model       string        `yaml:"model"`
+	BaseURL     string        `yaml:"base_url"`
+	MaxTokens   int           `yaml:"max_tokens"`
+	Temperature float64       `yaml:"temperature"`
+	TopP        float64       `yaml:"top_p"`
+	Timeout     time.Duration `yaml:"timeout"`
 }
 
-// ASRConfig ASR 配置 (sherpa-onnx 本地模型)
+// ASRConfig ASR 配置
 type ASRConfig struct {
-	ModelPath  string        // 模型路径 (paraformer.onnx)
-	TokensPath string        // 词表路径 (tokens.json)
-	SampleRate int           // 采样率 (默认16000)
-	Threshold  float32       // VAD阈值 (默认0.5)
-	Timeout    time.Duration // 超时时间
+	Provider        string        `yaml:"provider"`
+	AppKey          string        `yaml:"app_key"`
+	AccessKeyID     string        `yaml:"access_key_id"`
+	AccessKeySecret string        `yaml:"access_key_secret"`
+	ModelPath       string        `yaml:"model_path"`
+	TokensPath      string        `yaml:"tokens_path"`
+	SampleRate      int           `yaml:"sample_rate"`
+	Threshold       float32       `yaml:"threshold"`
+	Timeout         time.Duration `yaml:"timeout"`
 }
 
-// TTSConfig TTS 配置 (sherpa-onnx 本地模型)
+// TTSConfig TTS 配置
 type TTSConfig struct {
-	ModelPath    string        // 模型路径 (vits.onnx)
-	LexiconPath  string        // 词典路径 (lexicon.txt)
-	SpeakersPath string        // 说话人路径 (speakers.txt)
-	SampleRate   int           // 采样率 (默认24000)
-	Speed        float32       // 语速 (默认1.0)
-	Timeout      time.Duration // 超时时间
+	Provider     string        `yaml:"provider"`
+	ModelPath    string        `yaml:"model_path"`
+	LexiconPath  string        `yaml:"lexicon_path"`
+	SpeakersPath string        `yaml:"speakers_path"`
+	SampleRate   int           `yaml:"sample_rate"`
+	Speed        float32       `yaml:"speed"`
+	Timeout      time.Duration `yaml:"timeout"`
 }
 
 // WebRTCConfig WebRTC 配置
 type WebRTCConfig struct {
-	STUNServer string
+	STUNServer string `yaml:"stun_server"`
 }
 
 // RedisConfig Redis 配置
 type RedisConfig struct {
-	Addr     string
-	Password string
-	DB       int
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
 }
 
 // SessionConfig 会话配置
 type SessionConfig struct {
-	Timeout time.Duration
+	Timeout time.Duration `yaml:"timeout"`
 }
 
 // 全局配置实例
@@ -87,93 +94,79 @@ var GlobalConfig *Config
 
 // LoadConfig 加载配置
 func LoadConfig() *Config {
-	GlobalConfig = &Config{
-		Server: ServerConfig{
-			Mode: getEnv("GIN_MODE", "debug"),
-			Host: getEnv("SERVER_HOST", "0.0.0.0"),
-			Port: getEnvInt("SERVER_PORT", 8080),
-		},
-		Database: DatabaseConfig{
-			MySQL: MySQLConfig{
-				Source: getEnv("MYSQL_SOURCE", "root:root@tcp(localhost:3306)/voice_assistant?charset=utf8mb4&parseTime=True&loc=Local"),
-			},
-		},
-		LLM: LLMConfig{
-			APIKey:      getEnv("DASHSCOPE_API_KEY", ""),
-			Model:       getEnv("LLM_MODEL", "qwen-plus"),
-			BaseURL:     getEnv("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
-			MaxTokens:   getEnvInt("LLM_MAX_TOKENS", 2000),
-			Temperature: getEnvFloat("LLM_TEMPERATURE", 0.7),
-			TopP:        getEnvFloat("LLM_TOP_P", 0.8),
-			Timeout:     getEnvDuration("LLM_TIMEOUT", 30*time.Second),
-		},
-		ASR: ASRConfig{
-			ModelPath:  getEnv("ASR_MODEL_PATH", "./models/paraformer.onnx"),
-			TokensPath: getEnv("ASR_TOKENS_PATH", "./models/tokens.json"),
-			SampleRate: getEnvInt("ASR_SAMPLE_RATE", 16000),
-			Threshold:  float32(getEnvFloat("ASR_THRESHOLD", 0.5)),
-			Timeout:    getEnvDuration("ASR_TIMEOUT", 10*time.Second),
-		},
-		TTS: TTSConfig{
-			ModelPath:    getEnv("TTS_MODEL_PATH", "./models/vits.onnx"),
-			LexiconPath:  getEnv("TTS_LEXICON_PATH", "./models/lexicon.txt"),
-			SpeakersPath: getEnv("TTS_SPEAKERS_PATH", "./models/speakers.txt"),
-			SampleRate:   getEnvInt("TTS_SAMPLE_RATE", 24000),
-			Speed:        float32(getEnvFloat("TTS_SPEED", 1.0)),
-			Timeout:      getEnvDuration("TTS_TIMEOUT", 30*time.Second),
-		},
-		WebRTC: WebRTCConfig{
-			STUNServer: getEnv("STUN_SERVER", "stun:stun.l.google.com:19302"),
-		},
-		Redis: RedisConfig{
-			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
-			Password: getEnv("REDIS_PASSWORD", ""),
-			DB:       getEnvInt("REDIS_DB", 0),
-		},
-		Session: SessionConfig{
-			Timeout: getEnvDuration("SESSION_TIMEOUT", 30*time.Minute),
-		},
+	configPath := getConfigPath()
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		panic(fmt.Sprintf("读取配置文件失败: %v", err))
 	}
+
+	GlobalConfig = &Config{}
+	if err := yaml.Unmarshal(data, GlobalConfig); err != nil {
+		panic(fmt.Sprintf("解析配置文件失败: %v", err))
+	}
+
+	// 设置默认值
+	setDefaults(GlobalConfig)
 
 	return GlobalConfig
 }
 
-// getEnv 获取环境变量字符串
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+// getConfigPath 获取配置文件路径
+func getConfigPath() string {
+	if path := os.Getenv("CONFIG_PATH"); path != "" {
+		return path
 	}
-	return defaultValue
+	return "config/config.yaml"
 }
 
-// getEnvInt 获取环境变量整数
-func getEnvInt(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if intVal, err := strconv.Atoi(value); err == nil {
-			return intVal
-		}
+// setDefaults 设置默认值
+func setDefaults(cfg *Config) {
+	if cfg.Server.Mode == "" {
+		cfg.Server.Mode = "debug"
 	}
-	return defaultValue
-}
-
-// getEnvFloat 获取环境变量浮点数
-func getEnvFloat(key string, defaultValue float64) float64 {
-	if value := os.Getenv(key); value != "" {
-		if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
-			return floatVal
-		}
+	if cfg.Server.Host == "" {
+		cfg.Server.Host = "0.0.0.0"
 	}
-	return defaultValue
-}
-
-// getEnvDuration 获取环境变量时间间隔
-func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
-	if value := os.Getenv(key); value != "" {
-		if duration, err := time.ParseDuration(value); err == nil {
-			return duration
-		}
+	if cfg.Server.Port == 0 {
+		cfg.Server.Port = 8080
 	}
-	return defaultValue
+	if cfg.LLM.MaxTokens == 0 {
+		cfg.LLM.MaxTokens = 2000
+	}
+	if cfg.LLM.Temperature == 0 {
+		cfg.LLM.Temperature = 0.7
+	}
+	if cfg.LLM.TopP == 0 {
+		cfg.LLM.TopP = 0.8
+	}
+	if cfg.LLM.Timeout == 0 {
+		cfg.LLM.Timeout = 30 * time.Second
+	}
+	if cfg.ASR.SampleRate == 0 {
+		cfg.ASR.SampleRate = 16000
+	}
+	if cfg.ASR.Threshold == 0 {
+		cfg.ASR.Threshold = 0.5
+	}
+	if cfg.ASR.Timeout == 0 {
+		cfg.ASR.Timeout = 10 * time.Second
+	}
+	if cfg.TTS.SampleRate == 0 {
+		cfg.TTS.SampleRate = 24000
+	}
+	if cfg.TTS.Speed == 0 {
+		cfg.TTS.Speed = 1.0
+	}
+	if cfg.TTS.Timeout == 0 {
+		cfg.TTS.Timeout = 30 * time.Second
+	}
+	if cfg.WebRTC.STUNServer == "" {
+		cfg.WebRTC.STUNServer = "stun:stun.l.google.com:19302"
+	}
+	if cfg.Session.Timeout == 0 {
+		cfg.Session.Timeout = 30 * time.Minute
+	}
 }
 
 // GetConfig 获取全局配置
