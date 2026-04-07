@@ -1,8 +1,0 @@
-nginx: [emerg] open() "/etc/nginx/httpd.conf" failed (2: No such file or directory)
-nginx: [emerg] open() "/etc/nginx/httpd.conf" failed (2: No such file or directory)
-nginx: [emerg] open() "/etc/nginx/httpd.conf" failed (2: No such file or directory)
-nginx: [emerg] open() "/etc/nginx/httpd.conf" failed (2: No such file or directory)
-nginx: [emerg] "worker_processes" directive is not allowed here in /etc/nginx/http.d/default.conf:1
-nginx: [emerg] "worker_processes" directive is not allowed here in /etc/nginx/http.d/default.conf:1
-nginx: [emerg] "worker_processes" directive is not allowed here in /etc/nginx/http.d/default.conf:1
-nginx: [emerg] "worker_processes" directive is not allowed here in /etc/nginx/http.d/default.conf:1
