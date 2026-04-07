@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { ref, onUnmounted, nextTick, watch, onMounted } from 'vue';
 import { voiceWS as asrService } from '../services/ws';
-import type { ASRMessage } from '../types';
+import { chatApi } from '../services/chatApi';
+import type { WSServerMessage } from '../types';
+import { MessageType } from '../types';
 
 const textInput = ref('');
 const messages = ref<{ role: 'user' | 'assistant'; content: string; id: number }[]>([
   { role: 'assistant', content: '你好！我是语音助手，请问有什么可以帮助你的吗？', id: Date.now() }
 ]);
 const isRecording = ref(false);
+const isLoading = ref(false);
 const isWakeWordListening = ref(false);
 const wakeWordDetected = ref(false);
 
 // Wake word detection constants
-const WAKE_WORD = '小爱同学';
 const WAKE_WORD_REGEX = /小爱同学/;
 
 // Web Speech API recognition
@@ -37,27 +39,41 @@ function scrollToBottom() {
 
 watch(messages, scrollToBottom, { deep: true });
 
-function sendTextMessage() {
-  if (!textInput.value.trim()) return;
+async function sendTextMessage() {
+  if (!textInput.value.trim() || isLoading.value) return;
 
+  const userMessage = textInput.value.trim();
+
+  // 添加用户消息
   messages.value.push({
     role: 'user',
-    content: textInput.value,
+    content: userMessage,
     id: ++messageIdCounter
   });
 
+  textInput.value = '';
   scrollToBottom();
 
-  setTimeout(() => {
+  // 调用 API
+  isLoading.value = true;
+  try {
+    const resp = await chatApi.sendMessage({ message: userMessage });
     messages.value.push({
       role: 'assistant',
-      content: `收到: "${textInput.value}"，正在处理中...`,
+      content: resp.text,
       id: ++messageIdCounter
     });
+  } catch (err) {
+    messages.value.push({
+      role: 'assistant',
+      content: '抱歉，发生了错误，请稍后重试。',
+      id: ++messageIdCounter
+    });
+    console.error('Chat error:', err);
+  } finally {
+    isLoading.value = false;
     scrollToBottom();
-  }, 600);
-
-  textInput.value = '';
+  }
 }
 
 async function toggleRecording() {
@@ -90,7 +106,7 @@ async function startRecording() {
     mediaRecorder.ondataavailable = async (event) => {
       if (event.data.size > 0) {
         const arrayBuffer = await event.data.arrayBuffer();
-        asrService.send(arrayBuffer);
+        asrService.sendAudio(arrayBuffer);
       }
     };
 
@@ -138,24 +154,28 @@ function updateAudioLevel() {
   animationFrame = requestAnimationFrame(updateAudioLevel);
 }
 
-function handleASRMessage(message: ASRMessage) {
-  if (message.text) {
-    messages.value.push({
-      role: 'user',
-      content: message.text,
-      id: ++messageIdCounter
-    });
-
-    scrollToBottom();
-
-    setTimeout(() => {
+function handleASRMessage(message: WSServerMessage) {
+  // 处理 ASR 结果消息
+  if (message.type === MessageType.ASR_RESULT && message.data) {
+    const asrData = message.data as { text?: string };
+    if (asrData?.text) {
       messages.value.push({
-        role: 'assistant',
-        content: `收到: "${message.text}"，这是自动回复。`,
+        role: 'user',
+        content: asrData.text,
         id: ++messageIdCounter
       });
+
       scrollToBottom();
+
+      setTimeout(() => {
+        messages.value.push({
+          role: 'assistant',
+          content: `收到: "${asrData.text}"，这是自动回复。`,
+          id: ++messageIdCounter
+        });
+        scrollToBottom();
     }, 800);
+  }
   }
 }
 

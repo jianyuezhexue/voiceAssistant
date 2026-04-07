@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"voice-assistant/backend/api"
 	apiasr "voice-assistant/backend/api/asr"
+	apichat "voice-assistant/backend/api/chat"
 	"voice-assistant/backend/api/knowledge"
 	"voice-assistant/backend/api/todo"
 	voicehandler "voice-assistant/backend/api/voice"
@@ -14,6 +15,7 @@ import (
 	"voice-assistant/backend/component/webrtc"
 	"voice-assistant/backend/config"
 	domainvoice "voice-assistant/backend/domain/voice"
+	logicchat "voice-assistant/backend/logic"
 	logicvoice "voice-assistant/backend/logic/voice"
 )
 
@@ -32,6 +34,9 @@ func Setup(mode string, cfg *config.Config) *gin.Engine {
 
 	// 初始化语音组件
 	voiceHandler := initVoiceHandler(cfg)
+
+	// 初始化聊天组件
+	chatHandler := initChatHandler(cfg)
 
 	// 健康检查
 	healthHandler := api.NewHealthHandler(nil)
@@ -64,6 +69,9 @@ func Setup(mode string, cfg *config.Config) *gin.Engine {
 			knowledgeGroup.POST("/search", knowledgeApi.Search)
 			knowledgeGroup.DELETE("", knowledgeApi.Del)
 		}
+
+		// Chat 路由
+		v1.POST("/chat", chatHandler.Chat)
 	}
 
 	// WebSocket 路由
@@ -124,4 +132,19 @@ func initVoiceHandler(cfg *config.Config) *voicehandler.VoiceHandler {
 
 	// 创建语音 Handler
 	return voicehandler.NewVoiceHandler(dialogueLogic, interruptHandler)
+}
+
+// initChatHandler 初始化聊天处理器
+func initChatHandler(cfg *config.Config) *apichat.Handler {
+	// 创建 LLM 客户端
+	var llmClient *llm.Client
+	if cfg.LLM.APIKey != "" {
+		llmClient = llm.NewClient(cfg.LLM.APIKey, cfg.LLM.BaseURL, cfg.LLM.Model)
+	}
+
+	// 创建聊天逻辑
+	chatLogic := logicchat.NewChatLogic(llmClient)
+
+	// 创建聊天 Handler
+	return apichat.NewHandler(chatLogic)
 }

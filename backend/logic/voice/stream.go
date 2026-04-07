@@ -24,9 +24,9 @@ type StreamRouter struct {
 	ttsInput chan *tts.TTSAudio
 
 	// 回调函数
-	onASRResult func(result *asr.ASRResult)
+	onASRResult   func(result *asr.ASRResult)
 	onLLMResponse func(resp *llm.LLMResponse)
-	onTTSAudio   func(audio *tts.TTSAudio)
+	onTTSAudio    func(audio *tts.TTSAudio)
 
 	// 状态管理
 	ctx    context.Context

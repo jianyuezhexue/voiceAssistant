@@ -8,7 +8,7 @@ services:
     container_name: app
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/Dockerfile.app
       target: runtime
     ports:
       - "8080:8080"
@@ -18,18 +18,18 @@ services:
       # LLM 配置
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-your-api-key-here}
       - LLM_MODEL=qwen-plus
-      # Redis 配置
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_URL=redis://redis:6379/0
+      # Redis 配置（使用远程服务）
+      - REDIS_HOST=${REDIS_HOST:-}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_URL=${REDIS_URL:-}
+      # MySQL 配置（使用远程服务）
+      - MYSQL_SOURCE=${MYSQL_SOURCE:-root:buildingblocks@tcp(8.155.47.77:3306)/voiceAssistant?charset=utf8mb4&parseTime=True&loc=Local&timeout=1000ms}
       # WebRTC 配置
       - STUN_SERVER=stun:stun.l.google.com:19302
       - TURN_SERVER=${TURN_SERVER:-}
     volumes:
       - ../backend:/app/backend/source:rw
       - ../backend/config:/app/backend/config:rw
-    depends_on:
-      - redis
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -57,22 +57,6 @@ services:
     networks:
       - internal
 
-  redis:
-    image: redis:7-alpine
-    container_name: voiceassistant-redis
-    ports:
-      - "6379:6379"
-    environment:
-      - TZ=Asia/Shanghai
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    networks:
-      - internal
-
 networks:
   internal:
     driver: bridge
-
-volumes:
-  redis_data:
