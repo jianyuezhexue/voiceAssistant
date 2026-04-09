@@ -18,9 +18,6 @@ func main() {
 		Source: cfg.Database.MySQL.Source,
 	})
 
-	// TODO: 初始化 Redis
-	// redis.Init(&cfg.Redis)
-
 	// 初始化路由
 	r := router.Setup(cfg.Server.Mode, cfg)
 

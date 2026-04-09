@@ -1,8 +1,6 @@
 package router
 
 import (
-	"log"
-
 	"github.com/gin-gonic/gin"
 	"voice-assistant/backend/api"
 	apiasr "voice-assistant/backend/api/asr"
@@ -11,12 +9,7 @@ import (
 	"voice-assistant/backend/api/todo"
 	voicehandler "voice-assistant/backend/api/voice"
 	"voice-assistant/backend/component/llm"
-	componenttts "voice-assistant/backend/component/tts"
-	"voice-assistant/backend/component/webrtc"
 	"voice-assistant/backend/config"
-	domainvoice "voice-assistant/backend/domain/voice"
-	logicchat "voice-assistant/backend/logic"
-	logicvoice "voice-assistant/backend/logic/voice"
 )
 
 // Setup 初始化路由
@@ -24,6 +17,11 @@ func Setup(mode string, cfg *config.Config) *gin.Engine {
 	gin.SetMode(mode)
 
 	r := gin.Default()
+
+	// 初始化 LLM 单例（惰性加载，不影响路由初始化性能）
+	if cfg.LLM.APIKey != "" {
+		llm.GetClient(cfg.LLM.APIKey, cfg.LLM.BaseURL, cfg.LLM.Model)
+	}
 
 	// 设置默认用户ID（解决 currUserId 缺失问题）
 	r.Use(func(c *gin.Context) {
@@ -34,9 +32,6 @@ func Setup(mode string, cfg *config.Config) *gin.Engine {
 
 	// 初始化语音组件
 	voiceHandler := initVoiceHandler(cfg)
-
-	// 初始化聊天组件
-	chatHandler := initChatHandler(cfg)
 
 	// 健康检查
 	healthHandler := api.NewHealthHandler(nil)
@@ -71,7 +66,11 @@ func Setup(mode string, cfg *config.Config) *gin.Engine {
 		}
 
 		// Chat 路由
-		v1.POST("/chat", chatHandler.Chat)
+		chatApi := apichat.NewHandler()
+		chatGroup := v1.Group("/chat")
+		{
+			chatGroup.POST("/send", chatApi.Chat)
+		}
 	}
 
 	// WebSocket 路由
@@ -85,66 +84,5 @@ func Setup(mode string, cfg *config.Config) *gin.Engine {
 
 // initVoiceHandler 初始化语音处理器
 func initVoiceHandler(cfg *config.Config) *voicehandler.VoiceHandler {
-	// 创建会话管理器
-	sessionManager := domainvoice.NewSessionManager(cfg.Session.Timeout)
-
-	// 创建 LLM 客户端
-	var llmClient *llm.Client
-	if cfg.LLM.APIKey != "" {
-		llmClient = llm.NewClient(cfg.LLM.APIKey, cfg.LLM.BaseURL, cfg.LLM.Model)
-	}
-
-	// 创建 TTS 客户端
-	var ttsClient *componenttts.Client
-	if cfg.TTS.ModelPath != "" {
-		client, err := componenttts.NewClient(&componenttts.TTSConfig{
-			ModelPath:    cfg.TTS.ModelPath,
-			LexiconPath:  cfg.TTS.LexiconPath,
-			SpeakersPath: cfg.TTS.SpeakersPath,
-			SampleRate:   cfg.TTS.SampleRate,
-			Speed:        cfg.TTS.Speed,
-		})
-		if err != nil {
-			log.Printf("failed to create TTS client: %v", err)
-		} else {
-			ttsClient = client
-		}
-	}
-
-	// 创建 WebRTC DataChannel Handler
-	dcHandler := webrtc.NewDataChannelHandler(webrtc.DefaultDataChannelConfig)
-
-	// 创建语音对话逻辑
-	dialogueLogicConfig := &logicvoice.VoiceDialogueLogicConfig{
-		LLMClient:      llmClient,
-		TTSClient:      ttsClient,
-		DCServer:       dcHandler,
-		SessionManager: sessionManager,
-	}
-	dialogueLogic := logicvoice.NewVoiceDialogueLogic(dialogueLogicConfig)
-
-	// 创建打断处理器
-	interruptConfig := &logicvoice.InterruptHandlerConfig{
-		TTSClient:      ttsClient,
-		SessionManager: sessionManager,
-	}
-	interruptHandler := logicvoice.NewInterruptHandler(interruptConfig)
-
-	// 创建语音 Handler
-	return voicehandler.NewVoiceHandler(dialogueLogic, interruptHandler)
-}
-
-// initChatHandler 初始化聊天处理器
-func initChatHandler(cfg *config.Config) *apichat.Handler {
-	// 创建 LLM 客户端
-	var llmClient *llm.Client
-	if cfg.LLM.APIKey != "" {
-		llmClient = llm.NewClient(cfg.LLM.APIKey, cfg.LLM.BaseURL, cfg.LLM.Model)
-	}
-
-	// 创建聊天逻辑
-	chatLogic := logicchat.NewChatLogic(llmClient)
-
-	// 创建聊天 Handler
-	return apichat.NewHandler(chatLogic)
+	return voicehandler.NewVoiceHandler(cfg)
 }

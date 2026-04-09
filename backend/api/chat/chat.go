@@ -1,16 +1,15 @@
 package chat
 
 import (
-	"net/http"
-	"time"
+	"voice-assistant/backend/api"
+	"voice-assistant/backend/logic"
 
 	"github.com/gin-gonic/gin"
-	"voice-assistant/backend/logic"
 )
 
 // ChatRequest Chat请求结构
 type ChatRequest struct {
-	SessionID string `json:"session_id"`
+	SessionID string `json:"session_id" binding:"required"`
 	Message   string `json:"message" binding:"required"`
 }
 
@@ -23,21 +22,22 @@ type ChatResponse struct {
 
 // Handler Chat API处理器
 type Handler struct {
-	chatLogic *logic.ChatLogic
+	api.Base
 }
 
 // NewHandler 创建Chat处理器
-func NewHandler(chatLogic *logic.ChatLogic) *Handler {
-	return &Handler{
-		chatLogic: chatLogic,
-	}
+func NewHandler() *Handler {
+	return &Handler{}
 }
 
 // Chat 处理文字对话请求
-func (h *Handler) Chat(c *gin.Context) {
-	var req ChatRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+func (a Handler) Chat(c *gin.Context) {
+
+	// 参数校验
+	req := &ChatRequest{}
+	err := a.Bind(c, req)
+	if err != nil {
+		a.Error(err)
 		return
 	}
 
@@ -47,16 +47,14 @@ func (h *Handler) Chat(c *gin.Context) {
 		sessionID = "default"
 	}
 
-	// 调用 logic 处理
-	text, err := h.chatLogic.ProcessMessage(c.Request.Context(), sessionID, req.Message)
+	// 调用逻辑层
+	chatLogic := logic.NewChatLogic()
+	res, err := chatLogic.ProcessMessage(c.Request.Context(), sessionID, req.Message)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		a.Error(err)
 		return
 	}
 
-	c.JSON(http.StatusOK, ChatResponse{
-		SessionID: sessionID,
-		Text:      text,
-		CreatedAt: time.Now().Format(time.RFC3339),
-	})
+	// 接口返回
+	a.Success(res, "对话成功")
 }

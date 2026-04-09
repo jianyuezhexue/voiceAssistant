@@ -2,10 +2,17 @@ package logic
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
 	"voice-assistant/backend/component/llm"
+)
+
+// Error definitions
+var (
+	ErrLLMClientNotFound = errors.New("llm client not found")
+	ErrInvalidLLMClient  = errors.New("invalid llm client type")
 )
 
 // ChatMessage 聊天消息结构
@@ -27,10 +34,17 @@ type ChatLogic struct {
 	sessions  sync.Map // map[string]*ChatSession
 }
 
-// NewChatLogic 创建聊天逻辑
-func NewChatLogic(llmClient *llm.Client) *ChatLogic {
+// NewChatLogic 创建聊天逻辑（使用单例获取 llm.Client）
+func NewChatLogic() *ChatLogic {
 	return &ChatLogic{
-		llmClient: llmClient,
+		llmClient: llm.GetClient("", "", ""), // 使用单例，按需创建
+	}
+}
+
+// NewChatLogicWithClient 使用指定的 llm.Client 创建聊天逻辑
+func NewChatLogicWithClient(client *llm.Client) *ChatLogic {
+	return &ChatLogic{
+		llmClient: client,
 	}
 }
 

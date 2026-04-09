@@ -12,6 +12,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 
+	"voice-assistant/backend/component/tts"
+	componentwebrtc "voice-assistant/backend/component/webrtc"
+	"voice-assistant/backend/config"
 	"voice-assistant/backend/domain/voice"
 	voicelogic "voice-assistant/backend/logic/voice"
 )
@@ -39,9 +42,47 @@ type VoiceHandler struct {
 	wg     sync.WaitGroup
 }
 
-// NewVoiceHandler 创建语音 Handler
-func NewVoiceHandler(dialogueLogic *voicelogic.VoiceDialogueLogic, interruptHandler *voicelogic.InterruptHandler) *VoiceHandler {
+// NewVoiceHandler 创建语音 Handler（组件自初始化）
+func NewVoiceHandler(cfg *config.Config) *VoiceHandler {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// 创建会话管理器
+	sessionManager := voice.NewSessionManager(cfg.Session.Timeout)
+
+	// 创建 TTS 客户端
+	var ttsClient *tts.Client
+	if cfg.TTS.ModelPath != "" {
+		client, err := tts.NewClient(&tts.TTSConfig{
+			ModelPath:    cfg.TTS.ModelPath,
+			LexiconPath:  cfg.TTS.LexiconPath,
+			SpeakersPath: cfg.TTS.SpeakersPath,
+			SampleRate:   cfg.TTS.SampleRate,
+			Speed:        cfg.TTS.Speed,
+		})
+		if err != nil {
+			log.Printf("failed to create TTS client: %v", err)
+		} else {
+			ttsClient = client
+		}
+	}
+
+	// 创建 WebRTC DataChannel Handler
+	dcHandler := componentwebrtc.NewDataChannelHandler(componentwebrtc.DefaultDataChannelConfig)
+
+	// 创建语音对话逻辑（LLM 客户端通过单例按需获取）
+	dialogueLogicConfig := &voicelogic.VoiceDialogueLogicConfig{
+		TTSClient:      ttsClient,
+		DCServer:       dcHandler,
+		SessionManager: sessionManager,
+	}
+	dialogueLogic := voicelogic.NewVoiceDialogueLogic(dialogueLogicConfig)
+
+	// 创建打断处理器
+	interruptConfig := &voicelogic.InterruptHandlerConfig{
+		TTSClient:      ttsClient,
+		SessionManager: sessionManager,
+	}
+	interruptHandler := voicelogic.NewInterruptHandler(interruptConfig)
 
 	handler := &VoiceHandler{
 		dialogueLogic:    dialogueLogic,

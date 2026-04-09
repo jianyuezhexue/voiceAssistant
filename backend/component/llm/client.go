@@ -113,6 +113,49 @@ type Client struct {
 	mu          sync.RWMutex
 }
 
+// 单例客户端
+var (
+	defaultClient *Client
+	defaultOnce   sync.Once
+	defaultConfig *ClientConfig
+)
+
+// GetClient 获取单例 LLM 客户端（惰性加载）
+func GetClient(apiKey, baseURL, model string) *Client {
+	defaultOnce.Do(func() {
+		defaultConfig = &ClientConfig{
+			APIKey:      apiKey,
+			BaseURL:     baseURL,
+			Model:       model,
+			MaxTokens:   2000,
+			Temperature: 0.7,
+			TopP:        0.8,
+			Timeout:     30 * time.Second,
+		}
+		var err error
+		defaultClient, err = NewClientWithConfig(defaultConfig)
+		if err != nil {
+			log.Printf("[LLM] Failed to create default client: %v", err)
+			defaultClient = nil
+		}
+	})
+	return defaultClient
+}
+
+// GetClientWithConfig 使用配置获取单例 LLM 客户端
+func GetClientWithConfig(config *ClientConfig) *Client {
+	defaultOnce.Do(func() {
+		defaultConfig = config
+		var err error
+		defaultClient, err = NewClientWithConfig(config)
+		if err != nil {
+			log.Printf("[LLM] Failed to create default client: %v", err)
+			defaultClient = nil
+		}
+	})
+	return defaultClient
+}
+
 // NewClient 创建Qwen API客户端
 func NewClient(apiKey, baseURL, model string) *Client {
 	if baseURL == "" {

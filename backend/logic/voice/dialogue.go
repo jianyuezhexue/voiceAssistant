@@ -38,7 +38,7 @@ type VoiceDialogueLogic struct {
 
 // VoiceDialogueLogicConfig 语音对话逻辑配置
 type VoiceDialogueLogicConfig struct {
-	LLMClient      *llm.Client
+	// 注意：LLMClient 已移除，请使用 llm.GetClient() 获取单例
 	TTSClient      *tts.Client
 	DCServer       *webrtc.DataChannelHandler
 	SessionManager *voice.SessionManager
@@ -46,8 +46,11 @@ type VoiceDialogueLogicConfig struct {
 
 // NewVoiceDialogueLogic 创建语音对话逻辑
 func NewVoiceDialogueLogic(config *VoiceDialogueLogicConfig) *VoiceDialogueLogic {
+	// 使用单例获取 llm.Client（惰性加载）
+	llmClient := llm.GetClient("", "", "")
+
 	logic := &VoiceDialogueLogic{
-		llmClient:      config.LLMClient,
+		llmClient:      llmClient,
 		ttsClient:      config.TTSClient,
 		dcServer:       config.DCServer,
 		sessionManager: config.SessionManager,
