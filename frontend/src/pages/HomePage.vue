@@ -1,328 +1,3 @@
-<script setup lang="ts">
-import { ref, onUnmounted, nextTick, watch, onMounted } from 'vue';
-import { voiceWS as asrService } from '../services/ws';
-import { chatApi } from '../services/chatApi';
-import type { WSServerMessage } from '../types';
-import { MessageType } from '../types';
-
-const textInput = ref('');
-const messages = ref<{ role: 'user' | 'assistant'; content: string; id: number }[]>([
-  { role: 'assistant', content: '你好！我是语音助手，请问有什么可以帮助你的吗？', id: Date.now() }
-]);
-const isRecording = ref(false);
-const isLoading = ref(false);
-const isWakeWordListening = ref(false);
-const wakeWordDetected = ref(false);
-
-// Wake word detection constants
-const WAKE_WORD_REGEX = /小爱同学/;
-
-// Web Speech API recognition
-let wakeWordRecognition: any = null;
-
-let mediaRecorder: MediaRecorder | null = null;
-let audioContext: AudioContext | null = null;
-let analyser: AnalyserNode | null = null;
-let animationFrame: number | null = null;
-let messageIdCounter = Date.now();
-
-const messagesContainer = ref<HTMLElement | null>(null);
-const inputRef = ref<HTMLInputElement | null>(null);
-
-function scrollToBottom() {
-  nextTick(() => {
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-    }
-  });
-}
-
-watch(messages, scrollToBottom, { deep: true });
-
-async function sendTextMessage() {
-  if (!textInput.value.trim() || isLoading.value) return;
-
-  const userMessage = textInput.value.trim();
-
-  // 添加用户消息
-  messages.value.push({
-    role: 'user',
-    content: userMessage,
-    id: ++messageIdCounter
-  });
-
-  textInput.value = '';
-  scrollToBottom();
-
-  // 调用 API
-  isLoading.value = true;
-  try {
-    const resp = await chatApi.sendMessage({ message: userMessage });
-    messages.value.push({
-      role: 'assistant',
-      content: resp.text,
-      id: ++messageIdCounter
-    });
-  } catch (err) {
-    messages.value.push({
-      role: 'assistant',
-      content: '抱歉，发生了错误，请稍后重试。',
-      id: ++messageIdCounter
-    });
-    console.error('Chat error:', err);
-  } finally {
-    isLoading.value = false;
-    scrollToBottom();
-  }
-}
-
-async function toggleRecording() {
-  if (isRecording.value) {
-    stopRecording();
-  } else {
-    await startRecording();
-  }
-}
-
-async function startRecording() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-    audioContext = new AudioContext();
-    analyser = audioContext.createAnalyser();
-    const source = audioContext.createMediaStreamSource(stream);
-    source.connect(analyser);
-    analyser.fftSize = 256;
-
-    updateAudioLevel();
-
-    // Connect WebSocket in background, don't wait
-    asrService.connect();
-
-    mediaRecorder = new MediaRecorder(stream, {
-      mimeType: 'audio/webm;codecs=opus',
-    });
-
-    mediaRecorder.ondataavailable = async (event) => {
-      if (event.data.size > 0) {
-        const arrayBuffer = await event.data.arrayBuffer();
-        asrService.sendAudio(arrayBuffer);
-      }
-    };
-
-    mediaRecorder.onstop = () => {
-      stream.getTracks().forEach((track) => track.stop());
-    };
-
-    mediaRecorder.start(100);
-
-    isRecording.value = true;
-
-    asrService.onMessage(handleASRMessage);
-  } catch (e) {
-    console.error('Failed to start recording:', e);
-    isRecording.value = false;
-  }
-}
-
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
-  }
-
-  if (animationFrame) {
-    cancelAnimationFrame(animationFrame);
-    animationFrame = null;
-  }
-
-  if (audioContext) {
-    audioContext.close();
-    audioContext = null;
-  }
-
-  asrService.disconnect();
-
-  isRecording.value = false;
-}
-
-function updateAudioLevel() {
-  if (!analyser || !isRecording.value) return;
-
-  const dataArray = new Uint8Array(analyser.frequencyBinCount);
-  analyser.getByteFrequencyData(dataArray);
-
-  animationFrame = requestAnimationFrame(updateAudioLevel);
-}
-
-function handleASRMessage(message: WSServerMessage) {
-  // 处理 ASR 结果消息
-  if (message.type === MessageType.ASR_RESULT && message.data) {
-    const asrData = message.data as { text?: string };
-    if (asrData?.text) {
-      messages.value.push({
-        role: 'user',
-        content: asrData.text,
-        id: ++messageIdCounter
-      });
-
-      scrollToBottom();
-
-      setTimeout(() => {
-        messages.value.push({
-          role: 'assistant',
-          content: `收到: "${asrData.text}"，这是自动回复。`,
-          id: ++messageIdCounter
-        });
-        scrollToBottom();
-    }, 800);
-  }
-  }
-}
-
-function focusInput() {
-  inputRef.value?.focus();
-}
-
-onUnmounted(() => {
-  if (isRecording.value) {
-    stopRecording();
-  }
-  stopWakeWordDetection();
-});
-
-// ============================================
-// Wake Word Detection (Auto Listen on Load)
-// ============================================
-
-function initWakeWordRecognition() {
-  // Check if Web Speech API is supported
-  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    console.warn('[WakeWord] Web Speech API not supported in this browser');
-    return null;
-  }
-
-  const recognition = new SpeechRecognition();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = 'zh-CN';
-
-  recognition.onstart = () => {
-    console.log('[WakeWord] Recognition started');
-    isWakeWordListening.value = true;
-  };
-
-  recognition.onresult = (event: any) => {
-    let interimTranscript = '';
-    let finalTranscript = '';
-
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const transcript = event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        finalTranscript += transcript;
-      } else {
-        interimTranscript += transcript;
-      }
-    }
-
-    const combinedTranscript = (finalTranscript + interimTranscript).toLowerCase();
-    console.log('[WakeWord] Heard:', combinedTranscript);
-
-    // Check for wake word
-    if (WAKE_WORD_REGEX.test(combinedTranscript)) {
-      console.log('[WakeWord] Wake word detected!');
-      handleWakeWordDetected();
-    }
-  };
-
-  recognition.onerror = (event: any) => {
-    console.error('[WakeWord] Recognition error:', event.error);
-    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-      console.warn('[WakeWord] Microphone permission denied');
-      isWakeWordListening.value = false;
-    }
-  };
-
-  recognition.onend = () => {
-    console.log('[WakeWord] Recognition ended');
-    isWakeWordListening.value = false;
-    // Restart listening if still in wake word mode and not recording
-    if (!wakeWordDetected.value && !isRecording.value) {
-      setTimeout(() => {
-        if (wakeWordRecognition && !isRecording.value) {
-          try {
-            wakeWordRecognition.start();
-          } catch (e) {
-            console.warn('[WakeWord] Could not restart recognition');
-          }
-        }
-      }, 1000);
-    }
-  };
-
-  return recognition;
-}
-
-async function startWakeWordDetection() {
-  // Request microphone permission first
-  try {
-    await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (e) {
-    console.warn('[WakeWord] Microphone permission denied');
-    return;
-  }
-
-  wakeWordRecognition = initWakeWordRecognition();
-  if (wakeWordRecognition) {
-    try {
-      wakeWordRecognition.start();
-    } catch (e) {
-      console.error('[WakeWord] Failed to start recognition:', e);
-    }
-  }
-}
-
-function stopWakeWordDetection() {
-  if (wakeWordRecognition) {
-    try {
-      wakeWordRecognition.stop();
-    } catch (e) {
-      // Ignore errors when stopping
-    }
-    wakeWordRecognition = null;
-  }
-  isWakeWordListening.value = false;
-}
-
-function handleWakeWordDetected() {
-  // Guard: prevent duplicate execution
-  if (wakeWordDetected.value) return;
-  wakeWordDetected.value = true;
-
-  // Stop wake word detection
-  stopWakeWordDetection();
-
-  // Add system message
-  messages.value.push({
-    role: 'assistant',
-    content: '听到你叫我了，正在打开语音输入...',
-    id: ++messageIdCounter
-  });
-  scrollToBottom();
-
-  // Immediately start voice recording (removed 800ms delay)
-  startRecording();
-}
-
-// Auto-start wake word detection when page loads
-onMounted(() => {
-  // Small delay to ensure page is fully loaded
-  setTimeout(() => {
-    startWakeWordDetection();
-  }, 1000);
-});
-</script>
-
 <template>
   <div class="home-page">
     <!-- Warm Cream Background -->
@@ -461,6 +136,338 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
+
+<script setup lang="ts">
+import { ref, onUnmounted, nextTick, watch, onMounted } from 'vue';
+import { voiceWS as asrService } from '../services/ws';
+import { chatApi } from '../services/chatApi';
+import type { WSServerMessage } from '../types';
+import { MessageType } from '../types';
+
+const textInput = ref('');
+const messages = ref<{ role: 'user' | 'assistant'; content: string; id: number }[]>([
+  { role: 'assistant', content: '你好！我是语音助手，请问有什么可以帮助你的吗？', id: Date.now() }
+]);
+const isRecording = ref(false);
+const isLoading = ref(false);
+const isWakeWordListening = ref(false);
+const wakeWordDetected = ref(false);
+
+// Wake word detection constants
+const WAKE_WORD_REGEX = /小爱同学/;
+
+// Web Speech API recognition
+let wakeWordRecognition: any = null;
+
+let mediaRecorder: MediaRecorder | null = null;
+let audioContext: AudioContext | null = null;
+let analyser: AnalyserNode | null = null;
+let animationFrame: number | null = null;
+let messageIdCounter = Date.now();
+
+const messagesContainer = ref<HTMLElement | null>(null);
+const inputRef = ref<HTMLInputElement | null>(null);
+
+function scrollToBottom() {
+  nextTick(() => {
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    }
+  });
+}
+
+watch(messages, scrollToBottom, { deep: true });
+
+async function sendTextMessage() {
+  if (!textInput.value.trim() || isLoading.value) return;
+
+  const userMessage = textInput.value.trim();
+
+  // 添加用户消息
+  messages.value.push({
+    role: 'user',
+    content: userMessage,
+    id: ++messageIdCounter
+  });
+
+  textInput.value = '';
+  scrollToBottom();
+
+  // 调用 API
+  isLoading.value = true;
+  try {
+    const resp = await chatApi.sendMessage({ message: userMessage });
+    messages.value.push({
+      role: 'assistant',
+      content: resp.text,
+      id: ++messageIdCounter
+    });
+  } catch (err) {
+    messages.value.push({
+      role: 'assistant',
+      content: '抱歉，发生了错误，请稍后重试。',
+      id: ++messageIdCounter
+    });
+    console.error('Chat error:', err);
+  } finally {
+    isLoading.value = false;
+    scrollToBottom();
+  }
+}
+
+
+// 切换开启录音停止录音
+async function toggleRecording() {
+  if (isRecording.value) {
+    stopRecording();
+  } else {
+    await startRecording();
+  }
+}
+
+// 开始录音
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    audioContext = new AudioContext();
+    analyser = audioContext.createAnalyser();
+    const source = audioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+    analyser.fftSize = 256;
+
+    updateAudioLevel();
+
+    // Connect WebSocket in background, don't wait
+    asrService.connect();
+
+    mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'audio/webm;codecs=opus',
+    });
+
+    mediaRecorder.ondataavailable = async (event) => {
+      if (event.data.size > 0) {
+        const arrayBuffer = await event.data.arrayBuffer();
+        asrService.sendAudio(arrayBuffer);
+      }
+    };
+
+    mediaRecorder.onstop = () => {
+      stream.getTracks().forEach((track) => track.stop());
+    };
+
+    mediaRecorder.start(100);
+
+    isRecording.value = true;
+
+    asrService.onMessage(handleASRMessage);
+  } catch (e) {
+    console.error('Failed to start recording:', e);
+    isRecording.value = false;
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame);
+    animationFrame = null;
+  }
+
+  if (audioContext) {
+    audioContext.close();
+    audioContext = null;
+  }
+
+  asrService.disconnect();
+
+  isRecording.value = false;
+}
+
+function updateAudioLevel() {
+  if (!analyser || !isRecording.value) return;
+
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(dataArray);
+
+  animationFrame = requestAnimationFrame(updateAudioLevel);
+}
+
+function handleASRMessage(message: WSServerMessage) {
+  // 处理 ASR 结果消息
+  if (message.type === MessageType.ASR_RESULT && message.data) {
+    const asrData = message.data as { text?: string };
+    if (asrData?.text) {
+      messages.value.push({
+        role: 'user',
+        content: asrData.text,
+        id: ++messageIdCounter
+      });
+
+      scrollToBottom();
+
+      setTimeout(() => {
+        messages.value.push({
+          role: 'assistant',
+          content: `收到: "${asrData.text}"，这是自动回复。`,
+          id: ++messageIdCounter
+        });
+        scrollToBottom();
+    }, 800);
+  }
+  }
+}
+
+function focusInput() {
+  inputRef.value?.focus();
+}
+
+onUnmounted(() => {
+  if (isRecording.value) {
+    stopRecording();
+  }
+  stopWakeWordDetection();
+});
+
+// ============================================
+// Wake Word Detection (Auto Listen on Load)
+// ============================================
+
+// 初始化关键词识别
+function initWakeWordRecognition() {
+  // Check if Web Speech API is supported
+  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    console.warn('[WakeWord] Web Speech API not supported in this browser');
+    return null;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'zh-CN';
+
+  recognition.onstart = () => {
+    console.log('[WakeWord] Recognition started');
+    isWakeWordListening.value = true;
+  };
+
+  recognition.onresult = (event: any) => {
+    let interimTranscript = '';
+    let finalTranscript = '';
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript;
+      } else {
+        interimTranscript += transcript;
+      }
+    }
+
+    const combinedTranscript = (finalTranscript + interimTranscript).toLowerCase();
+    console.log('[WakeWord] Heard:', combinedTranscript);
+
+    // Check for wake word
+    if (WAKE_WORD_REGEX.test(combinedTranscript)) {
+      console.log('[WakeWord] Wake word detected!');
+      handleWakeWordDetected();
+    }
+  };
+
+  recognition.onerror = (event: any) => {
+    console.error('[WakeWord] Recognition error:', event.error);
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      console.warn('[WakeWord] Microphone permission denied');
+      isWakeWordListening.value = false;
+    }
+  };
+
+  recognition.onend = () => {
+    console.log('[WakeWord] Recognition ended');
+    isWakeWordListening.value = false;
+    // Restart listening if still in wake word mode and not recording
+    if (!wakeWordDetected.value && !isRecording.value) {
+      setTimeout(() => {
+        if (wakeWordRecognition && !isRecording.value) {
+          try {
+            wakeWordRecognition.start();
+          } catch (e) {
+            console.warn('[WakeWord] Could not restart recognition');
+          }
+        }
+      }, 1000);
+    }
+  };
+
+  return recognition;
+}
+
+// 开启
+async function startWakeWordDetection() {
+  // Request microphone permission first
+  try {
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    console.warn('[WakeWord] Microphone permission denied');
+    return;
+  }
+
+  wakeWordRecognition = initWakeWordRecognition();
+  if (wakeWordRecognition) {
+    try {
+      wakeWordRecognition.start();
+    } catch (e) {
+      console.error('[WakeWord] Failed to start recognition:', e);
+    }
+  }
+}
+
+function stopWakeWordDetection() {
+  if (wakeWordRecognition) {
+    try {
+      wakeWordRecognition.stop();
+    } catch (e) {
+      // Ignore errors when stopping
+    }
+    wakeWordRecognition = null;
+  }
+  isWakeWordListening.value = false;
+}
+
+function handleWakeWordDetected() {
+  // Guard: prevent duplicate execution
+  if (wakeWordDetected.value) return;
+  wakeWordDetected.value = true;
+
+  // Stop wake word detection
+  stopWakeWordDetection();
+
+  // Add system message
+  messages.value.push({
+    role: 'assistant',
+    content: '听到你叫我了，正在打开语音输入...',
+    id: ++messageIdCounter
+  });
+  scrollToBottom();
+
+  // Immediately start voice recording (removed 800ms delay)
+  startRecording();
+}
+
+// Auto-start wake word detection when page loads
+onMounted(() => {
+  // Small delay to ensure page is fully loaded
+  setTimeout(() => {
+    startWakeWordDetection();
+  }, 1000);
+});
+</script>
+
 
 <style scoped>
 .home-page {
