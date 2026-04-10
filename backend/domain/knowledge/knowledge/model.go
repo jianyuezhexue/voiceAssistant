@@ -58,25 +58,3 @@ func (m *KnowledgeEntity) Complete() error {
 	// TODO: 实现数据完善逻辑
 	return nil
 }
-
-// SetData 设置数据
-func (m *KnowledgeEntity) SetData(data any) (*KnowledgeEntity, error) {
-	switch v := data.(type) {
-	case *CreateKnowledge:
-		m.Title = v.Title
-		m.Content = v.Content
-		m.Category = v.Category
-		m.Source = v.Source
-	case *UpdateKnowledge:
-		if v.Title != "" {
-			m.Title = v.Title
-		}
-		if v.Content != "" {
-			m.Content = v.Content
-		}
-		if v.Category != "" {
-			m.Category = v.Category
-		}
-	}
-	return m, nil
-}

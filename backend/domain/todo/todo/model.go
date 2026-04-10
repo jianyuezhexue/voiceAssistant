@@ -58,27 +58,3 @@ func (m *TodoEntity) Complete() error {
 	// TODO: 实现数据完善逻辑
 	return nil
 }
-
-// SetData 设置数据
-func (m *TodoEntity) SetData(data any) (*TodoEntity, error) {
-	// 使用 copier 或手动赋值
-	switch v := data.(type) {
-	case *CreateTodo:
-		m.Title = v.Title
-		m.Content = v.Content
-		m.Source = v.Source
-		m.MeetingID = v.MeetingID
-		m.Status = "pending"
-	case *UpdateTodo:
-		if v.Title != "" {
-			m.Title = v.Title
-		}
-		if v.Content != "" {
-			m.Content = v.Content
-		}
-		if v.Status != "" {
-			m.Status = v.Status
-		}
-	}
-	return m, nil
-}
