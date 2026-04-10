@@ -2,6 +2,7 @@ package router
 
 import (
 	"voice-assistant/backend/api"
+	"voice-assistant/backend/api/chat"
 	"voice-assistant/backend/api/knowledge"
 	"voice-assistant/backend/api/todo"
 	"voice-assistant/backend/middleware"
@@ -13,17 +14,22 @@ import (
 func Setup() *gin.Engine {
 	r := gin.Default()
 
-	// 设置默认用户ID（解决 currUserId 缺失问题）
-	r.Use(middleware.AuthMiddleware())
-
-	// 健康检查
+	// 检查检查和中间件
 	r.GET("/health", api.NewBase().Health)
+	r.Use(middleware.AuthMiddleware())
 
 	// API v1
 	v1 := r.Group("/api/v1")
 	{
-
-		// websocket链接
+		// 聊天
+		chatAPi := chat.NewChat()
+		chatGroup := v1.Group("/chat")
+		{
+			// 文本对话
+			chatGroup.POST("", chatAPi.TextTalk)
+			// 语音对话
+			chatGroup.POST("/speech", chatAPi.SpeechTalk)
+		}
 
 		// Todo 路由
 		todoApi := todo.NewTodo()
