@@ -27,11 +27,10 @@ func Setup() *gin.Engine {
 		{
 			// ws
 			chatGroup.GET("ws", chatAPi.WsDemo)
-
-			// 文本对话
-			chatGroup.POST("", chatAPi.TextTalk)
-			// 语音对话
-			chatGroup.POST("/speech", chatAPi.SpeechTalk)
+			// // 文本对话
+			// chatGroup.POST("", chatAPi.TextTalk)
+			// // 语音对话
+			// chatGroup.POST("/speech", chatAPi.SpeechTalk)
 		}
 
 		// Todo 路由

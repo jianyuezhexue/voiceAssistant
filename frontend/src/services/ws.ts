@@ -1,11 +1,20 @@
-import type {
-  WSClientMessage,
-  WSServerMessage
-} from '../types';
+import type { WSClientMessage, WSServerMessage } from '../types';
 import { MessageType, VoiceState } from '../types';
 
+/**
+ * ArrayBuffer 转 Base64
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 // 开发环境直接连接后端
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws/voice';
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:2400/api/v1/chat/ws';
 
 // 心跳配置
 const HEARTBEAT_INTERVAL = 30000; // 30秒
@@ -125,6 +134,7 @@ class VoiceWebSocket {
     const message: WSServerMessage = {
       type: MessageType.TTS_AUDIO,
       sessionId: this.sessionId || '',
+      text: '',
       data: data,
       timestamp: Date.now()
     };
@@ -264,10 +274,11 @@ class VoiceWebSocket {
 
   /**
    * 发送文本消息
+   * 统一使用 JSON 格式: { type: 'user_text', data: { text: '...' } }
    */
-  sendText(text: string, type: MessageType = MessageType.ASR_RESULT): void {
+  sendText(text: string): void {
     const message: WSClientMessage = {
-      type,
+      type: MessageType.USER_TEXT,
       sessionId: this.sessionId || undefined,
       data: { text },
       timestamp: Date.now()
@@ -277,15 +288,30 @@ class VoiceWebSocket {
 
   /**
    * 发送音频数据
+   * 统一使用 JSON 格式: { type: 'user_audio', data: { audio: 'base64...', format: 'webm' } }
    */
-  sendAudio(audioData: ArrayBuffer): void {
+  sendAudio(audioData: ArrayBuffer, format: string = 'webm', isLast: boolean = true): void {
     if (this.ws?.readyState !== WebSocket.OPEN) {
       console.warn('[WS] Cannot send audio, not connected');
       return;
     }
 
-    // 音频数据使用二进制帧发送
-    this.ws.send(audioData);
+    // 将 ArrayBuffer 转为 base64
+    const base64Audio = arrayBufferToBase64(audioData);
+
+    const message: WSClientMessage = {
+      type: MessageType.USER_AUDIO,
+      sessionId: this.sessionId || undefined,
+      data: {
+        audio: base64Audio,
+        format,
+        isLast
+      },
+      timestamp: Date.now()
+    };
+
+    this.ws.send(JSON.stringify(message));
+    console.log(`[WS] Sent audio: ${format}, ${audioData.byteLength} bytes`);
   }
 
   /**

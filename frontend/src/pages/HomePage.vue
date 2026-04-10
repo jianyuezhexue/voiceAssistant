@@ -15,7 +15,7 @@
             <div class="header-left">
               <div class="ai-avatar">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                 </svg>
               </div>
               <div class="header-info">
@@ -29,8 +29,9 @@
             <div class="header-actions">
               <button class="icon-btn" title="设置">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                  <circle cx="12" cy="12" r="3"/>
+                  <path
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <circle cx="12" cy="12" r="3" />
                 </svg>
               </button>
             </div>
@@ -39,19 +40,16 @@
           <!-- Messages Area -->
           <div class="chat-messages" ref="messagesContainer">
             <TransitionGroup name="message" tag="div" class="messages-inner">
-              <div
-                v-for="(msg, index) in messages"
-                :key="msg.id"
-                class="chat-message"
-                :class="msg.role"
-                :style="{ '--delay': `${index * 0.05}s` }"
-              >
+              <div v-for="(msg, index) in messages" :key="msg.id" class="chat-message" :class="msg.role"
+                :style="{ '--delay': `${index * 0.05}s` }">
                 <div class="message-avatar" :class="msg.role">
-                  <svg v-if="msg.role === 'assistant'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                  <svg v-if="msg.role === 'assistant'" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="1.5">
+                    <path
+                      d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                   <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
                 <div class="message-content">
@@ -59,7 +57,8 @@
                     <p>{{ msg.content }}</p>
                   </div>
                   <div class="message-meta">
-                    <span class="time">{{ new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) }}</span>
+                    <span class="time">{{ new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+                      }}</span>
                   </div>
                 </div>
               </div>
@@ -69,7 +68,7 @@
             <div v-if="messages.length === 0" class="empty-state">
               <div class="empty-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                  <path d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19v3M8 22h8"/>
+                  <path d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19v3M8 22h8" />
                 </svg>
               </div>
               <p>开始对话吧</p>
@@ -82,14 +81,8 @@
             <div class="input-row">
               <!-- Text Input -->
               <div v-show="!isRecording" class="input-container" @click="focusInput">
-                <input
-                  ref="inputRef"
-                  v-model="textInput"
-                  type="text"
-                  class="chat-input"
-                  placeholder="输入消息..."
-                  @keyup.enter="sendTextMessage"
-                />
+                <input ref="inputRef" v-model="textInput" type="text" class="chat-input" placeholder="输入消息..."
+                  @keyup.enter="sendTextMessage" />
                 <div class="input-glow"></div>
               </div>
 
@@ -99,33 +92,25 @@
               </div>
 
               <!-- Voice Button (toggles recording) -->
-              <button
-                class="action-btn voice-btn"
-                :class="{ recording: isRecording }"
-                @click="toggleRecording"
-                :title="isRecording ? '结束录音' : '开始录音'"
-              >
+              <button class="action-btn voice-btn" :class="{ recording: isRecording }" @click="toggleRecording"
+                :title="isRecording ? '结束录音' : '开始录音'">
                 <svg v-if="!isRecording" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
-                  <path d="M19 10v2a7 7 0 01-14 0v-2"/>
-                  <line x1="12" y1="19" x2="12" y2="23"/>
-                  <line x1="8" y1="23" x2="16" y2="23"/>
+                  <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                  <path d="M19 10v2a7 7 0 01-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
                 </svg>
                 <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
-                  <path d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
+                  <path
+                    d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  <path d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
                 </svg>
               </button>
 
               <!-- Send Button (sends text message) -->
-              <button
-                class="action-btn send-btn"
-                @click="sendTextMessage"
-                :disabled="!textInput.trim()"
-                title="发送消息"
-              >
+              <button class="action-btn send-btn" @click="sendTextMessage" :disabled="!textInput.trim()" title="发送消息">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                  <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
               </button>
             </div>
@@ -139,12 +124,13 @@
 
 
 <script setup lang="ts">
-import { ref, onUnmounted, nextTick, watch, onMounted } from 'vue';
-import { voiceWS as asrService } from '../services/ws';
-import { chatApi } from '../services/chatApi';
+import { ref, onUnmounted, onMounted, nextTick, watch } from 'vue';
+import fvad from '@echogarden/fvad-wasm';
+import { voiceWS } from '../services/ws';
 import type { WSServerMessage } from '../types';
-import { MessageType } from '../types';
+import { MessageType, VoiceState } from '../types';
 
+// ==================== 状态管理 ====================
 const textInput = ref('');
 const messages = ref<{ role: 'user' | 'assistant'; content: string; id: number }[]>([
   { role: 'assistant', content: '你好！我是语音助手，请问有什么可以帮助你的吗？', id: Date.now() }
@@ -154,123 +140,304 @@ const isLoading = ref(false);
 const isWakeWordListening = ref(false);
 const wakeWordDetected = ref(false);
 
-// Wake word detection constants
-const WAKE_WORD_REGEX = /小爱同学/;
-
-// Web Speech API recognition
-let wakeWordRecognition: any = null;
-
-let mediaRecorder: MediaRecorder | null = null;
-let audioContext: AudioContext | null = null;
-let analyser: AnalyserNode | null = null;
-let animationFrame: number | null = null;
-let messageIdCounter = Date.now();
-
 const messagesContainer = ref<HTMLElement | null>(null);
 const inputRef = ref<HTMLInputElement | null>(null);
 
-function scrollToBottom() {
-  nextTick(() => {
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+let messageIdCounter = Date.now();
+
+// ==================== VAD 相关 ====================
+interface VADInstance {
+  vadInst: number;
+  module: any;
+}
+
+let vadInstance: VADInstance | null = null;
+
+// 音频能量阈值配置（过滤背景噪音）
+const ENERGY_THRESHOLD = 2000; // 能量阈值，低于此值视为背景噪音
+const MIN_SPEECH_FRAMES_RATIO = 0.6; // 至少30%的帧是语音才认为是人声
+
+/**
+ * 计算音频数据的 RMS 能量
+ * @param pcmData 16bit PCM 音频数据
+ * @returns 能量值 (0-32767)
+ */
+function calculateEnergy(pcmData: Int16Array): number {
+  let sum = 0;
+  for (let i = 0; i < pcmData.length; i++) {
+    sum += pcmData[i] * pcmData[i];
+  }
+  return Math.sqrt(sum / pcmData.length);
+}
+
+/**
+ * 计算音频的峰值电平
+ * @param pcmData 16bit PCM 音频数据
+ * @returns 峰值 (0-32767)
+ */
+function calculatePeak(pcmData: Int16Array): number {
+  let peak = 0;
+  for (let i = 0; i < pcmData.length; i++) {
+    const abs = Math.abs(pcmData[i]);
+    if (abs > peak) peak = abs;
+  }
+  return peak;
+}
+
+/**
+ * 初始化 VAD (Voice Activity Detection)
+ */
+async function initVAD(): Promise<VADInstance | null> {
+  try {
+    console.log('[VAD] Initializing fvad-wasm...');
+    const fvadModule = await fvad();
+
+    const vadInst = fvadModule._fvad_new();
+    if (!vadInst) {
+      console.error('[VAD] Failed to create VAD instance');
+      return null;
     }
-  });
+
+    // 设置 VAD 模式（0-3，越高越激进
+    fvadModule._fvad_set_mode(vadInst, 3);
+
+    // 设置采样率为 16kHz
+    fvadModule._fvad_set_sample_rate(vadInst, 16000);
+
+    console.log('[VAD] VAD initialized successfully');
+    return { vadInst, module: fvadModule };
+  } catch (error) {
+    console.error('[VAD] Failed to initialize:', error);
+    return null;
+  }
 }
 
-watch(messages, scrollToBottom, { deep: true });
+/**
+ * 检测音频数据是否包含语音
+ * 结合 VAD 和能量阈值过滤背景噪音
+ * @param pcmData 16bit PCM 音频数据，采样率 16kHz
+ * @returns true 如果检测到语音
+ */
+function isVoiceFrame(pcmData: Int16Array): boolean {
+  if (!vadInstance) return true; // 如果 VAD 未初始化，默认发送所有帧
 
-async function sendTextMessage() {
-  if (!textInput.value.trim() || isLoading.value) return;
+  // 第一步：能量检测 - 过滤低能量背景噪音
+  const energy = calculateEnergy(pcmData);
+  const peak = calculatePeak(pcmData);
 
-  const userMessage = textInput.value.trim();
+  // 如果能量太低，直接认为是背景噪音
+  if (energy < ENERGY_THRESHOLD) {
+    console.log(`[VAD] Energy too low: ${energy.toFixed(0)}, peak: ${peak}, filtered as noise`);
+    return false;
+  }
 
-  // 添加用户消息
-  messages.value.push({
-    role: 'user',
-    content: userMessage,
-    id: ++messageIdCounter
-  });
+  const { vadInst, module } = vadInstance;
+  const VAD_FRAME_SIZE = 160; // fvad 标准要求 10ms 帧 @ 16kHz
 
-  textInput.value = '';
-  scrollToBottom();
+  // 如果数据长度正好是一帧，直接处理
+  if (pcmData.length === VAD_FRAME_SIZE) {
+    const framePtr = module._malloc(VAD_FRAME_SIZE * 2);
+    module.HEAP16.set(pcmData, framePtr >> 1);
+    try {
+      const isSpeech = module._fvad_process(vadInst, framePtr, VAD_FRAME_SIZE) === 1;
+      console.log(`[VAD] Frame: energy=${energy.toFixed(0)}, peak=${peak}, speech=${isSpeech}`);
+      return isSpeech;
+    } finally {
+      module._free(framePtr);
+    }
+  }
 
-  // 调用 API
-  isLoading.value = true;
+  // 将音频分割成 160 样本的帧进行处理
+  let speechFrames = 0;
+  const framePtr = module._malloc(VAD_FRAME_SIZE * 2);
   try {
-    const resp = await chatApi.sendMessage({ message: userMessage });
-    messages.value.push({
-      role: 'assistant',
-      content: resp.text,
-      id: ++messageIdCounter
-    });
-  } catch (err) {
-    messages.value.push({
-      role: 'assistant',
-      content: '抱歉，发生了错误，请稍后重试。',
-      id: ++messageIdCounter
-    });
-    console.error('Chat error:', err);
+    for (let i = 0; i <= pcmData.length - VAD_FRAME_SIZE; i += VAD_FRAME_SIZE) {
+      const frame = pcmData.subarray(i, i + VAD_FRAME_SIZE);
+      module.HEAP16.set(frame, framePtr >> 1);
+      if (module._fvad_process(vadInst, framePtr, VAD_FRAME_SIZE) === 1) {
+        speechFrames++;
+      }
+    }
   } finally {
-    isLoading.value = false;
-    scrollToBottom();
+    module._free(framePtr);
+  }
+
+  // 计算语音帧比例
+  const totalFrames = Math.floor(pcmData.length / VAD_FRAME_SIZE);
+  const speechRatio = speechFrames / totalFrames;
+  const isSpeech = speechRatio >= MIN_SPEECH_FRAMES_RATIO;
+
+  console.log(`[VAD] Buffer: energy=${energy.toFixed(0)}, peak=${peak}, speechFrames=${speechFrames}/${totalFrames} (${(speechRatio * 100).toFixed(1)}%), result=${isSpeech}`);
+
+  return isSpeech;
+}
+
+/**
+ * Float32 转 Int16 PCM
+ * @param float32Array Float32 音频数据
+ * @returns Int16Array PCM 数据
+ */
+function float32ToInt16(float32Array: Float32Array): Int16Array {
+  const int16Array = new Int16Array(float32Array.length);
+  for (let i = 0; i < float32Array.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32Array[i]));
+    int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return int16Array;
+}
+
+/**
+ * 释放 VAD 实例
+ */
+function destroyVAD(): void {
+  if (vadInstance) {
+    vadInstance.module._fvad_free(vadInstance.vadInst);
+    vadInstance = null;
+    console.log('[VAD] VAD instance destroyed');
   }
 }
 
+// ==================== 音频录制相关 ====================
+let audioContext: AudioContext | null = null;
+let audioStream: MediaStream | null = null;
+let analyser: AnalyserNode | null = null;
+let animationFrame: number | null = null;
+let audioProcessor: ScriptProcessorNode | null = null;
+let audioSource: MediaStreamAudioSourceNode | null = null;
 
-// 切换开启录音停止录音
-async function toggleRecording() {
-  if (isRecording.value) {
-    stopRecording();
-  } else {
-    await startRecording();
-  }
-}
+// 音频缓冲区管理
+const AUDIO_BUFFER_SIZE = 3200; // 200ms @ 16kHz = 3200 samples
+let audioBuffer: Int16Array[] = [];
+let audioBufferTotalSamples = 0;
 
-// 开始录音
-async function startRecording() {
+/**
+ * 开始录音
+ */
+async function startRecording(): Promise<void> {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    console.log('[AudioRecorder] Starting recording...');
 
-    audioContext = new AudioContext();
+    // 检查 WebSocket 连接
+    if (!voiceWS.isConnected()) {
+      console.log('[AudioRecorder] WebSocket not connected, connecting...');
+      voiceWS.connect();
+    }
+
+    // 初始化 VAD（如果未初始化）
+    if (!vadInstance) {
+      vadInstance = await initVAD();
+      if (!vadInstance) {
+        console.error('[AudioRecorder] VAD initialization failed, will send all audio');
+      }
+    }
+
+    // 获取麦克风权限（已启用浏览器降噪）
+    audioStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        noiseSuppression: true,
+        echoCancellation: true,
+        autoGainControl: true,
+        sampleRate: 16000
+      }
+    });
+
+    // 创建 AudioContext（16kHz 采样率）
+    audioContext = new AudioContext({ sampleRate: 16000 });
+
+    // 创建分析器（用于可视化）
     analyser = audioContext.createAnalyser();
-    const source = audioContext.createMediaStreamSource(stream);
-    source.connect(analyser);
     analyser.fftSize = 256;
 
-    updateAudioLevel();
+    // 创建音频源和处理器
+    audioSource = audioContext.createMediaStreamSource(audioStream);
+    audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
 
-    // Connect WebSocket in background, don't wait
-    asrService.connect();
+    // 重置音频缓冲区
+    audioBuffer = [];
+    audioBufferTotalSamples = 0;
 
-    mediaRecorder = new MediaRecorder(stream, {
-      mimeType: 'audio/webm;codecs=opus',
-    });
+    // 实时处理音频帧
+    audioProcessor.onaudioprocess = (event) => {
+      if (!isRecording.value) return;
 
-    mediaRecorder.ondataavailable = async (event) => {
-      if (event.data.size > 0) {
-        const arrayBuffer = await event.data.arrayBuffer();
-        asrService.sendAudio(arrayBuffer);
+      const inputData = event.inputBuffer.getChannelData(0); // Float32
+      const pcmData = float32ToInt16(inputData); // 转为 Int16 PCM
+
+      // VAD 检测
+      if (isVoiceFrame(pcmData)) {
+        // 累积语音帧到缓冲区
+        audioBuffer.push(pcmData);
+        audioBufferTotalSamples += pcmData.length;
+
+        // 当缓冲区达到 200ms 时发送（流式中间片段）
+        if (audioBufferTotalSamples >= AUDIO_BUFFER_SIZE) {
+          sendAccumulatedAudio(false);
+        }
       }
     };
 
-    mediaRecorder.onstop = () => {
-      stream.getTracks().forEach((track) => track.stop());
-    };
+    // 连接节点
+    audioSource.connect(audioProcessor);
+    audioProcessor.connect(analyser);
+    analyser.connect(audioContext.destination);
 
-    mediaRecorder.start(100);
+    // 开始音频级别可视化
+    updateAudioLevel();
 
     isRecording.value = true;
+    console.log('[AudioRecorder] Recording started with VAD filtering');
 
-    asrService.onMessage(handleASRMessage);
-  } catch (e) {
-    console.error('Failed to start recording:', e);
-    isRecording.value = false;
+  } catch (error) {
+    console.error('[AudioRecorder] Failed to start recording:', error);
+    stopRecording();
   }
 }
 
-function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
+/**
+ * 发送累积的音频数据
+ * @param isLast 是否为最后一片（语音结束）
+ */
+function sendAccumulatedAudio(isLast: boolean = false): void {
+  if (audioBuffer.length === 0) return;
+
+  // 合并所有缓冲区
+  const totalLength = audioBufferTotalSamples;
+  const mergedBuffer = new Int16Array(totalLength);
+  let offset = 0;
+  for (const chunk of audioBuffer) {
+    mergedBuffer.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  // 发送音频数据（流式传输）
+  voiceWS.sendAudio(mergedBuffer.buffer, 'pcm', isLast);
+  console.log(`[AudioRecorder] Sent ${audioBuffer.length} voice frames, ${totalLength} samples, isLast=${isLast}`);
+
+  // 重置缓冲区
+  audioBuffer = [];
+  audioBufferTotalSamples = 0;
+}
+
+/**
+ * 停止录音
+ */
+function stopRecording(): void {
+  console.log('[AudioRecorder] Stopping recording...');
+
+  // 发送剩余缓冲区的音频数据（标记为最后一片）
+  if (audioBufferTotalSamples > 0) {
+    sendAccumulatedAudio(true);
+  }
+
+  // 断开音频处理器连接
+  if (audioSource) {
+    audioSource.disconnect();
+    audioSource = null;
+  }
+
+  if (audioProcessor) {
+    audioProcessor.disconnect();
+    audioProcessor = null;
   }
 
   if (animationFrame) {
@@ -278,68 +445,62 @@ function stopRecording() {
     animationFrame = null;
   }
 
+  if (analyser) {
+    analyser.disconnect();
+    analyser = null;
+  }
+
   if (audioContext) {
     audioContext.close();
     audioContext = null;
   }
 
-  asrService.disconnect();
+  if (audioStream) {
+    audioStream.getTracks().forEach(track => track.stop());
+    audioStream = null;
+  }
+
+  // 重置缓冲区
+  audioBuffer = [];
+  audioBufferTotalSamples = 0;
 
   isRecording.value = false;
+  console.log('[AudioRecorder] Recording stopped');
 }
 
-function updateAudioLevel() {
+/**
+ * 更新音频级别可视化
+ */
+function updateAudioLevel(): void {
   if (!analyser || !isRecording.value) return;
 
   const dataArray = new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteFrequencyData(dataArray);
 
+  // TODO: 这里可以添加音频波形可视化
+
   animationFrame = requestAnimationFrame(updateAudioLevel);
 }
 
-function handleASRMessage(message: WSServerMessage) {
-  // 处理 ASR 结果消息
-  if (message.type === MessageType.ASR_RESULT && message.data) {
-    const asrData = message.data as { text?: string };
-    if (asrData?.text) {
-      messages.value.push({
-        role: 'user',
-        content: asrData.text,
-        id: ++messageIdCounter
-      });
-
-      scrollToBottom();
-
-      setTimeout(() => {
-        messages.value.push({
-          role: 'assistant',
-          content: `收到: "${asrData.text}"，这是自动回复。`,
-          id: ++messageIdCounter
-        });
-        scrollToBottom();
-    }, 800);
-  }
-  }
-}
-
-function focusInput() {
-  inputRef.value?.focus();
-}
-
-onUnmounted(() => {
+/**
+ * 切换录音状态
+ */
+async function toggleRecording(): Promise<void> {
   if (isRecording.value) {
     stopRecording();
+  } else {
+    await startRecording();
   }
-  stopWakeWordDetection();
-});
+}
 
-// ============================================
-// Wake Word Detection (Auto Listen on Load)
-// ============================================
+// ==================== 唤醒词检测相关 ====================
+const WAKE_WORD_REGEX = /小爱同学/;
+let wakeWordRecognition: any = null;
 
-// 初始化关键词识别
-function initWakeWordRecognition() {
-  // Check if Web Speech API is supported
+/**
+ * 初始化唤醒词识别
+ */
+function initWakeWordRecognition(): any {
   const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
   if (!SpeechRecognition) {
     console.warn('[WakeWord] Web Speech API not supported in this browser');
@@ -372,7 +533,7 @@ function initWakeWordRecognition() {
     const combinedTranscript = (finalTranscript + interimTranscript).toLowerCase();
     console.log('[WakeWord] Heard:', combinedTranscript);
 
-    // Check for wake word
+    // 检测唤醒词
     if (WAKE_WORD_REGEX.test(combinedTranscript)) {
       console.log('[WakeWord] Wake word detected!');
       handleWakeWordDetected();
@@ -390,13 +551,13 @@ function initWakeWordRecognition() {
   recognition.onend = () => {
     console.log('[WakeWord] Recognition ended');
     isWakeWordListening.value = false;
-    // Restart listening if still in wake word mode and not recording
+    // 如果没有被唤醒词触发，且不在录音状态，则重启监听
     if (!wakeWordDetected.value && !isRecording.value) {
       setTimeout(() => {
         if (wakeWordRecognition && !isRecording.value) {
           try {
             wakeWordRecognition.start();
-          } catch (e) {
+          } catch (error) {
             console.warn('[WakeWord] Could not restart recognition');
           }
         }
@@ -407,12 +568,22 @@ function initWakeWordRecognition() {
   return recognition;
 }
 
-// 开启
-async function startWakeWordDetection() {
-  // Request microphone permission first
+/**
+ * 开始唤醒词检测
+ */
+async function startWakeWordDetection(): Promise<void> {
+  console.log('[WakeWord] Starting wake word detection...');
+
+  // 先请求麦克风权限
   try {
-    await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (e) {
+    await navigator.mediaDevices.getUserMedia({
+      audio: {
+        noiseSuppression: true,
+        echoCancellation: true,
+        autoGainControl: true
+      }
+    });
+  } catch (error) {
     console.warn('[WakeWord] Microphone permission denied');
     return;
   }
@@ -421,33 +592,43 @@ async function startWakeWordDetection() {
   if (wakeWordRecognition) {
     try {
       wakeWordRecognition.start();
-    } catch (e) {
-      console.error('[WakeWord] Failed to start recognition:', e);
+      console.log('[WakeWord] Wake word detection started');
+    } catch (error) {
+      console.error('[WakeWord] Failed to start recognition:', error);
     }
   }
 }
 
-function stopWakeWordDetection() {
+/**
+ * 停止唤醒词检测
+ */
+function stopWakeWordDetection(): void {
   if (wakeWordRecognition) {
     try {
       wakeWordRecognition.stop();
-    } catch (e) {
-      // Ignore errors when stopping
+    } catch (error) {
+      // 忽略停止错误
     }
     wakeWordRecognition = null;
   }
   isWakeWordListening.value = false;
+  console.log('[WakeWord] Wake word detection stopped');
 }
 
-function handleWakeWordDetected() {
-  // Guard: prevent duplicate execution
+/**
+ * 唤醒词触发处理
+ */
+function handleWakeWordDetected(): void {
+  // 防止重复触发
   if (wakeWordDetected.value) return;
   wakeWordDetected.value = true;
 
-  // Stop wake word detection
+  console.log('[WakeWord] Wake word detected, stopping detection...');
+
+  // 停止唤醒词检测
   stopWakeWordDetection();
 
-  // Add system message
+  // 显示提示消息
   messages.value.push({
     role: 'assistant',
     content: '听到你叫我了，正在打开语音输入...',
@@ -455,16 +636,238 @@ function handleWakeWordDetected() {
   });
   scrollToBottom();
 
-  // Immediately start voice recording (removed 800ms delay)
+  // 立即开始录音
   startRecording();
 }
 
-// Auto-start wake word detection when page loads
-onMounted(() => {
-  // Small delay to ensure page is fully loaded
+// ==================== WebSocket 消息处理 ====================
+/**
+ * 处理 WebSocket 消息
+ * 根据 MessageType 枚举维护对话消息列表
+ */
+function handleWSMessage(message: WSServerMessage): void {
+  console.log('[WebSocket] Received message:', message.type, message);
+
+  switch (message.type) {
+    // ========== 状态更新 ==========
+    case MessageType.STATE_UPDATE:
+      if (message.data) {
+        const state = message.data as VoiceState;
+        console.log('[WebSocket] State update:', state);
+        // TODO: 根据 state 更新 UI 状态（如显示「思考中...」等）
+      }
+      break;
+
+    // ========== ASR 实时识别结果（流式） ==========
+    case MessageType.ASR_RESULT:
+      if (message.data) {
+        const asrData = message.data as { text?: string; isFinal?: boolean };
+        console.log('[WebSocket] ASR result:', asrData.text);
+        // 实时识别结果可以显示临时文本或更新已有消息
+        // TODO: 如果需要显示「识别中...」的临时状态，可以在这里实现
+      }
+      break;
+
+    // ========== ASR 识别完成（用户语音识别文字） ==========
+    case MessageType.ASR_COMPLETE:
+      if (message.data) {
+        const asrData = message.data as { text?: string; confidence?: number };
+        if (asrData?.text) {
+          console.log('[WebSocket] ASR complete:', asrData.text);
+          // 添加用户消息到对话列表
+          messages.value.push({
+            role: 'user',
+            content: asrData.text,
+            id: ++messageIdCounter
+          });
+          scrollToBottom();
+        }
+      }
+      break;
+
+    // ========== LLM 流式文本（打字机效果） ==========
+    case MessageType.LLM_TEXT:
+      if (message.data) {
+        const llmData = message.data as { text?: string; isChunk?: boolean };
+        console.log('[WebSocket] LLM chunk:', llmData.text);
+
+        // 添加用户消息到对话列表
+        messages.value.push({
+          role: 'user',
+          content: message.text,
+          id: ++messageIdCounter
+        });
+        scrollToBottom();
+      }
+      break;
+
+    // ========== LLM 回复完成（大模型回复文字） ==========
+    case MessageType.LLM_COMPLETE:
+      if (message.text) {
+        // 添加 AI 回复到对话列表
+        messages.value.push({
+          role: 'assistant',
+          content: message.text,
+          id: ++messageIdCounter
+        });
+        scrollToBottom();
+      }
+      break;
+
+    // ========== TTS 音频数据 ==========
+    case MessageType.TTS_AUDIO:
+      if (message.data instanceof ArrayBuffer) {
+        console.log('[WebSocket] Received TTS audio (binary)');
+        // TODO: 播放 TTS 音频
+      } else if (message.data) {
+        // 处理 base64 格式的音频数据
+        const ttsData = message.data as { audio?: string; isLast?: boolean };
+        if (ttsData?.audio) {
+          console.log('[WebSocket] Received TTS audio (base64)');
+          // TODO: 解码 base64 并播放音频
+        }
+      }
+      break;
+
+    // ========== TTS 播放完成 ==========
+    case MessageType.TTS_COMPLETE:
+      console.log('[WebSocket] TTS complete');
+      // TODO: 更新 UI 状态，表示播放完成
+      break;
+
+    // ========== 错误消息 ==========
+    case MessageType.ERROR:
+      if (message.data) {
+        const errorData = message.data as { code?: string; message?: string };
+        console.error('[WebSocket] Error:', errorData);
+        // 显示错误消息
+        messages.value.push({
+          role: 'assistant',
+          content: `抱歉，出错了: ${errorData?.message || '未知错误'}`,
+          id: ++messageIdCounter
+        });
+        scrollToBottom();
+      }
+      break;
+
+    // ========== 打断通知 ==========
+    case MessageType.INTERRUPT:
+      if (message.data) {
+        const interruptData = message.data as { source?: string; reason?: string };
+        console.log('[WebSocket] Interrupted:', interruptData);
+        // TODO: 处理打断逻辑（如停止播放 TTS）
+      }
+      break;
+
+    // ========== 心跳响应 ==========
+    case MessageType.PONG:
+      // 心跳响应已在 ws.ts 中处理，这里忽略
+      break;
+
+    default:
+      console.log('[WebSocket] Unhandled message type:', message.type);
+  }
+}
+
+// ==================== 文字消息相关 ====================
+/**
+ * 发送文字消息
+ */
+async function sendTextMessage(): Promise<void> {
+  if (!textInput.value.trim() || isLoading.value) return;
+
+  const userMessage = textInput.value.trim();
+  textInput.value = '';
+
+  // 添加用户消息
+  messages.value.push({
+    role: 'user',
+    content: userMessage,
+    id: ++messageIdCounter
+  });
+  scrollToBottom();
+
+  // 通过 WebSocket 发送
+  isLoading.value = true;
+  try {
+    voiceWS.sendText(userMessage);
+    console.log('[WebSocket] Sent text message:', userMessage);
+  } catch (error) {
+    console.error('[WebSocket] Failed to send text:', error);
+    messages.value.push({
+      role: 'assistant',
+      content: '抱歉，发送消息失败，请稍后重试。',
+      id: ++messageIdCounter
+    });
+    scrollToBottom();
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+// ==================== 工具函数 ====================
+function scrollToBottom(): void {
+  nextTick(() => {
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    }
+  });
+}
+
+function focusInput(): void {
+  inputRef.value?.focus();
+}
+
+watch(messages, scrollToBottom, { deep: true });
+
+// ==================== 生命周期管理 ====================
+onMounted(async () => {
+  console.log('[HomePage] Component mounted');
+
+  // 1. 初始化 VAD
+  vadInstance = await initVAD();
+  if (!vadInstance) {
+    console.error('[HomePage] VAD initialization failed');
+  }
+
+  // 2. 连接 WebSocket
+  voiceWS.connect();
+  voiceWS.onMessage(handleWSMessage);
+
+  voiceWS.onConnect(() => {
+    console.log('[WebSocket] Connected to voice service');
+  });
+
+  voiceWS.onDisconnect(() => {
+    console.log('[WebSocket] Disconnected from voice service');
+  });
+
+  voiceWS.onError((error) => {
+    console.error('[WebSocket] Error:', error);
+  });
+
+  // 3. 启动唤醒词监听（延迟 1 秒）
   setTimeout(() => {
     startWakeWordDetection();
   }, 1000);
+});
+
+onUnmounted(() => {
+  console.log('[HomePage] Component unmounting');
+
+  // 停止录音
+  if (isRecording.value) {
+    stopRecording();
+  }
+
+  // 停止唤醒词检测
+  stopWakeWordDetection();
+
+  // 释放 VAD
+  destroyVAD();
+
+  // 断开 WebSocket
+  voiceWS.disconnect();
 });
 </script>
 
@@ -508,6 +911,7 @@ onMounted(() => {
     opacity: 0;
     transform: translateY(24px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -603,8 +1007,17 @@ onMounted(() => {
 }
 
 @keyframes listening-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.9); }
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(0.9);
+  }
 }
 
 .header-actions {
@@ -847,7 +1260,7 @@ onMounted(() => {
   transition: opacity 0.25s ease;
 }
 
-.chat-input:focus + .input-glow {
+.chat-input:focus+.input-glow {
   opacity: 0.15;
 }
 
@@ -898,8 +1311,15 @@ onMounted(() => {
 }
 
 @keyframes recording-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.08); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.08);
+  }
 }
 
 /* Listening Indicator */
@@ -932,15 +1352,24 @@ onMounted(() => {
   animation: ring-expand 2s ease-out infinite;
 }
 
-.listening-ring.ring-1 { animation-delay: 0s; }
-.listening-ring.ring-2 { animation-delay: 0.4s; }
-.listening-ring.ring-3 { animation-delay: 0.8s; }
+.listening-ring.ring-1 {
+  animation-delay: 0s;
+}
+
+.listening-ring.ring-2 {
+  animation-delay: 0.4s;
+}
+
+.listening-ring.ring-3 {
+  animation-delay: 0.8s;
+}
 
 @keyframes ring-expand {
   0% {
     transform: scale(1);
     opacity: 0.6;
   }
+
   100% {
     transform: scale(1.8);
     opacity: 0;
@@ -963,8 +1392,15 @@ onMounted(() => {
 }
 
 @keyframes pulse-text {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
 }
 
 /* Features Section */
@@ -1096,6 +1532,7 @@ onMounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .status-dot,
   .listening-ring,
   .chat-message,

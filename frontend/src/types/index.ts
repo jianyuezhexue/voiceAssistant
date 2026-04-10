@@ -47,6 +47,8 @@ export type {
   TTSAudio,
   InterruptEvent,
   VoiceSession,
+  UserTextData,
+  UserAudioData,
   WSClientMessage,
   WSServerMessage,
   DCMessage,

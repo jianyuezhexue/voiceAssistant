@@ -32,17 +32,36 @@ export enum InterruptSource {
 
 /**
  * 消息类型枚举
+ * 统一格式: type + data 结构
  */
 export enum MessageType {
+  // ========== 客户端发送 ==========
+  /** 用户发送文本 */
+  USER_TEXT = 'user_text',
+  /** 用户发送音频 (base64) */
+  USER_AUDIO = 'user_audio',
+
+  // ========== 服务端下发 ==========
+  /** ASR 实时识别结果 */
   ASR_RESULT = 'asr_result',
+  /** ASR 识别完成 */
   ASR_COMPLETE = 'asr_complete',
+  /** LLM 流式文本 */
   LLM_TEXT = 'llm_text',
+  /** LLM 回复完成 */
   LLM_COMPLETE = 'llm_complete',
+  /** TTS 音频数据 (base64) */
   TTS_AUDIO = 'tts_audio',
+  /** TTS 播放完成 */
   TTS_COMPLETE = 'tts_complete',
+  /** 状态更新 */
   STATE_UPDATE = 'state_update',
+  /** 错误消息 */
   ERROR = 'error',
+  /** 打断通知 */
   INTERRUPT = 'interrupt',
+
+  // ========== 心跳 ==========
   PING = 'ping',
   PONG = 'pong'
 }
@@ -127,21 +146,61 @@ export interface VoiceSession {
 }
 
 /**
+ * 用户文本消息数据
+ */
+export interface UserTextData {
+  text: string;
+}
+
+/**
+ * 用户音频消息数据
+ */
+export interface UserAudioData {
+  /** base64 编码的音频数据 */
+  audio: string;
+  /** 音频格式: webm, wav, pcm 等 */
+  format: string;
+  /** 是否为最后一片 (流式传输用) */
+  isLast?: boolean;
+}
+
+/**
  * WebSocket消息（前端发送）
+ * 统一结构: { type, sessionId, data, timestamp }
  */
 export interface WSClientMessage {
   type: MessageType;
   sessionId?: string;
+  /** 根据 type 不同，data 类型不同:
+   * - USER_TEXT: UserTextData
+   * - USER_AUDIO: UserAudioData
+   * - INTERRUPT: { reason?: string }
+   * - PING: undefined
+   */
   data?: unknown;
   timestamp: number;
 }
 
 /**
  * WebSocket消息（前端接收）
+ * 统一结构: { type, sessionId, data, timestamp }
  */
 export interface WSServerMessage {
   type: MessageType;
   sessionId: string;
+  text: string;
+  /** 根据 type 不同，data 类型不同:
+   * - ASR_RESULT: ASRResult
+   * - ASR_COMPLETE: ASRResult
+   * - LLM_TEXT: LLMResponse
+   * - LLM_COMPLETE: LLMResponse
+   * - TTS_AUDIO: { audio: string, isLast: boolean }
+   * - TTS_COMPLETE: undefined
+   * - STATE_UPDATE: VoiceState
+   * - ERROR: { code: string, message: string }
+   * - INTERRUPT: InterruptEvent
+   * - PONG: undefined
+   */
   data: unknown;
   timestamp: number;
 }
