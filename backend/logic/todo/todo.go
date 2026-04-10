@@ -1,17 +1,16 @@
 package todo
 
 import (
-	"github.com/gin-gonic/gin"
 	"voice-assistant/backend/domain/todo/todo"
 	"voice-assistant/backend/logic"
+
+	"github.com/gin-gonic/gin"
 )
 
-// TodoLogic 待办逻辑层
 type TodoLogic struct {
 	logic.BaseLogic
 }
 
-// NewTodoLogic 创建待办逻辑层实例
 func NewTodoLogic(ctx *gin.Context) *TodoLogic {
 	return &TodoLogic{BaseLogic: logic.BaseLogic{Ctx: ctx}}
 }

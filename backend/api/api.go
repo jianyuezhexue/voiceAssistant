@@ -9,6 +9,11 @@ type Base struct {
 	Ctx *gin.Context
 }
 
+// NewBase
+func NewBase() *Base {
+	return &Base{}
+}
+
 // Bind 绑定请求参数
 func (a *Base) Bind(ctx *gin.Context, req interface{}) error {
 	a.Ctx = ctx // 重要：必须设置 Ctx，否则 Error 和 Success 方法会 panic
@@ -32,5 +37,12 @@ func (a *Base) Error(err error) {
 	a.Ctx.JSON(200, gin.H{
 		"code":    -1,
 		"message": err.Error(),
+	})
+}
+
+// 健康检查
+func (a *Base) Health(ctx *gin.Context) {
+	ctx.JSON(200, gin.H{
+		"status": "ok",
 	})
 }

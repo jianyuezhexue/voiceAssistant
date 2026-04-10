@@ -2,59 +2,41 @@ package chat
 
 import (
 	"voice-assistant/backend/api"
-	"voice-assistant/backend/logic"
+	"voice-assistant/backend/domain/chat"
+	logic "voice-assistant/backend/logic/chat"
 
 	"github.com/gin-gonic/gin"
 )
 
-// ChatRequest Chat请求结构
-type ChatRequest struct {
-	SessionID string `json:"session_id" binding:"required"`
-	Message   string `json:"message" binding:"required"`
-}
-
-// ChatResponse Chat响应结构
-type ChatResponse struct {
-	SessionID string `json:"session_id"`
-	Text      string `json:"text"`
-	CreatedAt string `json:"created_at"`
-}
-
-// Handler Chat API处理器
-type Handler struct {
+// Chat Chat API处理器
+type Chat struct {
 	api.Base
 }
 
-// NewHandler 创建Chat处理器
-func NewHandler() *Handler {
-	return &Handler{}
+// NewChat 创建Chat处理器
+func NewChat() *Chat {
+	return &Chat{}
 }
 
-// Chat 处理文字对话请求
-func (a Handler) Chat(c *gin.Context) {
+// 文本对话
 
-	// 参数校验
-	req := &ChatRequest{}
-	err := a.Bind(c, req)
+// 语音对话
+func (a *Chat) SpeechTalk(ctx *gin.Context) {
+	// 获取参数
+	var req chat.SpeechTalkReq
+	if err := a.Bind(ctx, &req); err != nil {
+		a.Error(err)
+		return
+	}
+
+	// 处理逻辑
+	logic := logic.NewChatLogic(ctx)
+	res, err := logic.SpeechTalk(&req)
 	if err != nil {
 		a.Error(err)
 		return
 	}
 
-	// 生成 sessionID
-	sessionID := req.SessionID
-	if sessionID == "" {
-		sessionID = "default"
-	}
-
-	// 调用逻辑层
-	chatLogic := logic.NewChatLogic()
-	res, err := chatLogic.ProcessMessage(c.Request.Context(), sessionID, req.Message)
-	if err != nil {
-		a.Error(err)
-		return
-	}
-
-	// 接口返回
-	a.Success(res, "对话成功")
+	// 返回成功
+	a.Success(res, "")
 }

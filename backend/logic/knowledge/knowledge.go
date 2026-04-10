@@ -1,17 +1,16 @@
 package knowledge
 
 import (
-	"github.com/gin-gonic/gin"
 	"voice-assistant/backend/domain/knowledge/knowledge"
 	"voice-assistant/backend/logic"
+
+	"github.com/gin-gonic/gin"
 )
 
-// KnowledgeLogic 知识点逻辑层
 type KnowledgeLogic struct {
 	logic.BaseLogic
 }
 
-// NewKnowledgeLogic 创建知识点逻辑层实例
 func NewKnowledgeLogic(ctx *gin.Context) *KnowledgeLogic {
 	return &KnowledgeLogic{BaseLogic: logic.BaseLogic{Ctx: ctx}}
 }
