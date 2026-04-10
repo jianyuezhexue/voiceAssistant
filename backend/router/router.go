@@ -25,6 +25,9 @@ func Setup() *gin.Engine {
 		chatAPi := chat.NewChat()
 		chatGroup := v1.Group("/chat")
 		{
+			// ws
+			chatGroup.GET("ws", chatAPi.WsDemo)
+
 			// 文本对话
 			chatGroup.POST("", chatAPi.TextTalk)
 			// 语音对话
