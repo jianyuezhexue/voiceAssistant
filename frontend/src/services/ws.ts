@@ -18,7 +18,7 @@ const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:2400/api/v1/chat/w
 
 // 心跳配置
 const HEARTBEAT_INTERVAL = 30000; // 30秒
-const HEARTBEAT_TIMEOUT = 5000; // 5秒内未响应则重连
+const HEARTBEAT_TIMEOUT = 10000; // 10秒内未响应则重连
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY = 3000; // 3秒后重连
 

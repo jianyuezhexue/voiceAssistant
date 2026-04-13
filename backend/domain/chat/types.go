@@ -2,24 +2,23 @@ package chat
 
 // TextTalk
 type TextTalkRep struct {
-	SessionID string `json:"session_id" binding:"required"`
+	SessionId string `json:"sessionId" binding:"required"`
 	Text      string `json:"text" binding:"required"`
 }
 
 // SpeechTalkReq
 type SpeechTalkReq struct {
-	SessionID string `json:"session_id" binding:"required"`
+	SessionId string `json:"sessionId" binding:"required"`
 	Text      string `json:"text" binding:"required"`
 }
 
 // MsgType
 type WsMsgType struct {
-	SessionID string    `json:"session_id" binding:"required"`
+	SessionId string    `json:"sessionId" binding:"required"`
 	Type      string    `json:"type"`
 	Data      WsMsgData `json:"data"`
 	Timestamp int64     `json:"timestamp"`
 	Id        string    `json:"id"`
-	SessionId string    `json:"sessionId"`
 }
 
 type WsMsgData struct {
@@ -32,6 +31,6 @@ type WsMsgData struct {
 // TalkResp
 type TalkResp struct {
 	Type      string `json:"type"`
-	SessionID string `json:"session_id"`
+	SessionId string `json:"sessionId"`
 	Text      string `json:"text"`
 }

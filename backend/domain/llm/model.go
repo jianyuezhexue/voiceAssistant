@@ -1,8 +1,8 @@
 package llm
 
-type Agents struct {
+type LLM struct {
 }
 
-func NewAgents() AgentsInterface {
-	return &Agents{}
+func NewLLM() LLMInterface {
+	return &LLM{}
 }
