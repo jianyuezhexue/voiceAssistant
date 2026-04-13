@@ -36,3 +36,4 @@ backend/config/config.yaml
 backend/__debug_bin*
 backend/backend
 backend/demo/tests/
+.setting/mcp-mysql.log

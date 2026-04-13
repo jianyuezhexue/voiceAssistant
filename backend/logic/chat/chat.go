@@ -54,6 +54,7 @@ func (l *ChatLogic) Talk(conn *websocket.Conn) {
 
 // TextTalkRep 文字对话
 func (l *ChatLogic) TextTalk(req chat.WsMsgType) (chat.TalkResp, error) {
+
 	res := chat.TalkResp{
 		Type:      chat.MsgTypeLLMComplete.String(),
 		SessionID: req.SessionID,
