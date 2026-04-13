@@ -227,7 +227,7 @@ function isVoiceFrame(pcmData: Int16Array): boolean {
 
   // 如果能量太低，直接认为是背景噪音
   if (energy < ENERGY_THRESHOLD) {
-    console.log(`[VAD] Energy too low: ${energy.toFixed(0)}, peak: ${peak}, filtered as noise`);
+    // console.log(`[VAD] Energy too low: ${energy.toFixed(0)}, peak: ${peak}, filtered as noise`);
     return false;
   }
 
