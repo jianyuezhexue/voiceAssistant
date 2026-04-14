@@ -39,18 +39,6 @@ func (l *ChatLogic) Talk(client *wspool.WSClient) {
 			continue
 		}
 
-		// 心跳检测
-		if msgData.Type == chat.MsgTypePing.String() {
-			res := chat.TalkResp{
-				Type:      chat.MsgTypePong.String(),
-				SessionId: msgData.SessionId,
-				Text:      chat.MsgTypePong.String(),
-			}
-			resJSON, _ := json.Marshal(res)
-			client.Send(resJSON)
-			continue
-		}
-
 		// 对话类型分流
 		res := chat.TalkResp{}
 		if msgData.Type == chat.MsgTypeUserText.String() {

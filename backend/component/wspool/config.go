@@ -35,10 +35,11 @@ func init() {
 			WriteChanCap:     20,
 			ReadChanCap:      50,
 			WriteWaitTimeout: 1 * time.Second,
-			IdleTimeout:      5 * time.Minute,
-			PingPeriod:       30 * time.Second,
-			WriteDeadline:    10 * time.Second,
-			MaxMessageSize:   4096,
+			// IdleTimeout:      5 * time.Minute,
+			IdleTimeout:    1 * time.Minute, // 临时测试
+			PingPeriod:     30 * time.Second,
+			WriteDeadline:  10 * time.Second,
+			MaxMessageSize: 4096,
 		}
 	})
 }

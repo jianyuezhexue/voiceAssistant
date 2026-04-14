@@ -2,8 +2,10 @@ package wspool
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -27,6 +29,7 @@ type WSClient struct {
 	cancel    context.CancelFunc
 	once      sync.Once
 	idleTimer *time.Timer
+	closed    atomic.Bool
 }
 
 func newWSClient(sessionId string, conn *websocket.Conn, pool *WSPool) *WSClient {
@@ -64,6 +67,7 @@ func (c *WSClient) Done() <-chan struct{} {
 func (c *WSClient) Close() {
 	c.once.Do(func() {
 		log.Printf("[WSClient] session=%s 连接关闭", c.SessionId)
+		c.closed.Store(true)
 		c.idleTimer.Stop()
 		c.cancel()
 		close(c.writeChan)
@@ -75,6 +79,16 @@ func (c *WSClient) Close() {
 // Send 投递消息到写队列
 // 队列满时等待 WriteWaitTimeout，超时丢弃返回 false
 func (c *WSClient) Send(data []byte) bool {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WSClient] session=%s Send recovered from panic: %v", c.SessionId, r)
+		}
+	}()
+
+	if c.closed.Load() {
+		return false
+	}
+
 	// 快速路径
 	select {
 	case c.writeChan <- data:
@@ -130,6 +144,23 @@ func (c *WSClient) readPump() {
 
 		// 收到消息，重置空闲超时
 		c.resetIdleTimer()
+
+		// 心跳消息在传输层直接处理，避免阻塞业务队列
+		if msgType == websocket.TextMessage {
+			var tmp struct {
+				Type      string `json:"type"`
+				SessionId string `json:"sessionId"`
+			}
+			if json.Unmarshal(data, &tmp) == nil && tmp.Type == "ping" {
+				pong, _ := json.Marshal(map[string]any{
+					"type":      "pong",
+					"sessionId": tmp.SessionId,
+					"timestamp": time.Now().UnixMilli(),
+				})
+				c.Send(pong)
+				continue
+			}
+		}
 
 		// 推入读通道，供业务层消费
 		msg := &WSMessage{MsgType: msgType, Data: data}
