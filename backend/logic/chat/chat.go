@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"voice-assistant/backend/component/wspool"
 	"voice-assistant/backend/domain/chat"
 	"voice-assistant/backend/domain/llm"
 	"voice-assistant/backend/logic"
@@ -11,7 +12,6 @@ import (
 	"github.com/cloudwego/eino/components/prompt"
 	"github.com/cloudwego/eino/schema"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 )
 
 type ChatLogic struct {
@@ -22,21 +22,22 @@ func NewChatLogic(ctx *gin.Context) *ChatLogic {
 	return &ChatLogic{BaseLogic: logic.BaseLogic{Ctx: ctx}}
 }
 
-// 综合对话
-// todo 这里改成 ws池
-func (l *ChatLogic) Talk(conn *websocket.Conn) {
-
+// Talk 通过 wspool 的读通道驱动对话
+func (l *ChatLogic) Talk(client *wspool.WSClient) {
 	for {
-		// 读取消息
-		msgType, msg, err := conn.ReadMessage()
-		if err != nil {
-			log.Println("读取失败:", err)
-			break
+		// 从读通道获取消息（阻塞直到有消息或连接关闭）
+		wsMsg := client.ReadMessage()
+		if wsMsg == nil {
+			log.Printf("[ChatLogic] session=%s 读通道关闭，退出对话", client.SessionId)
+			return
 		}
 
-		// 解析WsMsgType
+		// 解析消息
 		var msgData chat.WsMsgType
-		err = json.Unmarshal(msg, &msgData)
+		if err := json.Unmarshal(wsMsg.Data, &msgData); err != nil {
+			log.Printf("[ChatLogic] session=%s 消息解析失败: %v", client.SessionId, err)
+			continue
+		}
 
 		// 心跳检测
 		if msgData.Type == chat.MsgTypePing.String() {
@@ -46,7 +47,8 @@ func (l *ChatLogic) Talk(conn *websocket.Conn) {
 				Text:      chat.MsgTypePong.String(),
 			}
 			resJSON, _ := json.Marshal(res)
-			conn.WriteMessage(msgType, resJSON)
+			client.Send(resJSON)
+			continue
 		}
 
 		// 对话类型分流
@@ -57,12 +59,11 @@ func (l *ChatLogic) Talk(conn *websocket.Conn) {
 			res, _ = l.SpeechTalk(msgData)
 		}
 
-		// 回写（echo）
+		// 通过写通道回写
 		resJSON, _ := json.Marshal(res)
-		err = conn.WriteMessage(msgType, resJSON)
-		if err != nil {
-			log.Println("发送失败:", err)
-			break
+		if !client.Send(resJSON) {
+			log.Printf("[ChatLogic] session=%s 写队列满或已关闭，退出对话", client.SessionId)
+			return
 		}
 	}
 }

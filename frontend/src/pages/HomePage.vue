@@ -21,8 +21,8 @@
               <div class="header-info">
                 <h2>语音助手</h2>
                 <div class="status">
-                  <span class="status-dot" :class="{ active: !isRecording, listening: isWakeWordListening }"></span>
-                  <span>{{ isRecording ? '正在聆听...' : (isWakeWordListening ? '等待唤醒...' : '随时待命') }}</span>
+                  <span class="status-dot" :class="{ active: !isRecording, listening: isWakeWordListening, thinking: isLoading }"></span>
+                  <span>{{ isLoading ? '思考中...' : (isRecording ? '正在聆听...' : (isWakeWordListening ? '等待唤醒...' : '随时待命')) }}</span>
                 </div>
               </div>
             </div>
@@ -54,7 +54,14 @@
                 </div>
                 <div class="message-content">
                   <div class="message-bubble" :class="msg.role">
-                    <p>{{ msg.content }}</p>
+                    <template v-if="msg.thinking">
+                      <div class="thinking-dots">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                      </div>
+                    </template>
+                    <p v-else>{{ msg.content }}</p>
                   </div>
                   <div class="message-meta">
                     <span class="time">{{ new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
@@ -132,7 +139,7 @@ import { MessageType, VoiceState } from '../types';
 
 // ==================== 状态管理 ====================
 const textInput = ref('');
-const messages = ref<{ role: 'user' | 'assistant'; content: string; id: number }[]>([
+const messages = ref<{ role: 'user' | 'assistant'; content: string; id: number; thinking?: boolean }[]>([
   { role: 'assistant', content: '你好！我是语音助手，请问有什么可以帮助你的吗？', id: Date.now() }
 ]);
 const isRecording = ref(false);
@@ -154,7 +161,7 @@ interface VADInstance {
 let vadInstance: VADInstance | null = null;
 
 // 音频能量阈值配置（过滤背景噪音）
-const ENERGY_THRESHOLD = 2000; // 能量阈值，低于此值视为背景噪音
+const ENERGY_THRESHOLD = 500; // 能量阈值，低于此值视为背景噪音
 const MIN_SPEECH_FRAMES_RATIO = 0.6; // 至少30%的帧是语音才认为是人声
 
 /**
@@ -704,12 +711,23 @@ function handleWSMessage(message: WSServerMessage): void {
     // ========== LLM 回复完成（大模型回复文字） ==========
     case MessageType.LLM_COMPLETE:
       if (message.text) {
-        // 添加 AI 回复到对话列表
-        messages.value.push({
-          role: 'assistant',
-          content: message.text,
-          id: ++messageIdCounter
-        });
+        // 查找并替换"思考中"占位消息
+        const thinkingIdx = messages.value.findIndex(m => m.thinking);
+        if (thinkingIdx !== -1) {
+          messages.value[thinkingIdx] = {
+            role: 'assistant',
+            content: message.text,
+            id: messages.value[thinkingIdx].id
+          };
+        } else {
+          // 如果没有思考中消息，直接添加
+          messages.value.push({
+            role: 'assistant',
+            content: message.text,
+            id: ++messageIdCounter
+          });
+        }
+        isLoading.value = false;
         scrollToBottom();
       }
       break;
@@ -740,12 +758,22 @@ function handleWSMessage(message: WSServerMessage): void {
       if (message.data) {
         const errorData = message.data as { code?: string; message?: string };
         console.error('[WebSocket] Error:', errorData);
-        // 显示错误消息
-        messages.value.push({
-          role: 'assistant',
-          content: `抱歉，出错了: ${errorData?.message || '未知错误'}`,
-          id: ++messageIdCounter
-        });
+        // 替换思考中消息为错误提示
+        const errThinkingIdx = messages.value.findIndex(m => m.thinking);
+        if (errThinkingIdx !== -1) {
+          messages.value[errThinkingIdx] = {
+            role: 'assistant',
+            content: `抱歉，出错了: ${errorData?.message || '未知错误'}`,
+            id: messages.value[errThinkingIdx].id
+          };
+        } else {
+          messages.value.push({
+            role: 'assistant',
+            content: `抱歉，出错了: ${errorData?.message || '未知错误'}`,
+            id: ++messageIdCounter
+          });
+        }
+        isLoading.value = false;
         scrollToBottom();
       }
       break;
@@ -785,6 +813,15 @@ async function sendTextMessage(): Promise<void> {
     content: userMessage,
     id: ++messageIdCounter
   });
+
+  // 添加"思考中"占位消息
+  const thinkingId = ++messageIdCounter;
+  messages.value.push({
+    role: 'assistant',
+    content: '思考中...',
+    id: thinkingId,
+    thinking: true
+  });
   scrollToBottom();
 
   // 通过 WebSocket 发送
@@ -794,14 +831,17 @@ async function sendTextMessage(): Promise<void> {
     console.log('[WebSocket] Sent text message:', userMessage);
   } catch (error) {
     console.error('[WebSocket] Failed to send text:', error);
-    messages.value.push({
-      role: 'assistant',
-      content: '抱歉，发送消息失败，请稍后重试。',
-      id: ++messageIdCounter
-    });
-    scrollToBottom();
-  } finally {
+    // 发送失败，移除思考中消息并显示错误
+    const idx = messages.value.findIndex(m => m.id === thinkingId);
+    if (idx !== -1) {
+      messages.value[idx] = {
+        role: 'assistant',
+        content: '抱歉，发送消息失败，请稍后重试。',
+        id: thinkingId
+      };
+    }
     isLoading.value = false;
+    scrollToBottom();
   }
 }
 
@@ -1004,6 +1044,59 @@ onUnmounted(() => {
   background: #22c55e;
   box-shadow: 0 0 8px #22c55e;
   animation: listening-pulse 1.5s ease-in-out infinite;
+}
+
+.status-dot.thinking {
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+  animation: thinking-pulse 1s ease-in-out infinite;
+}
+
+@keyframes thinking-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
+}
+
+/* Thinking dots animation */
+.thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.thinking-dots .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  opacity: 0.4;
+  animation: dot-bounce 1.4s ease-in-out infinite;
+}
+
+.thinking-dots .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.thinking-dots .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dot-bounce {
+  0%, 80%, 100% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
 
 @keyframes listening-pulse {
