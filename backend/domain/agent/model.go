@@ -2,9 +2,11 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 	"voice-assistant/backend/domain/llm"
 
@@ -26,56 +28,74 @@ func NewAgent(ctx *gin.Context) *Agent {
 	}
 }
 
+// toolErrorMiddleware 拦截工具调用错误，将错误转换为友好的结果返回，
+// 让 LLM 能够感知到工具失败并自主决定如何回答，而不是直接终止 ReAct 循环。
+func toolErrorMiddleware() compose.ToolMiddleware {
+	return compose.ToolMiddleware{
+		Invokable: func(next compose.InvokableToolEndpoint) compose.InvokableToolEndpoint {
+			return func(ctx context.Context, input *compose.ToolInput) (*compose.ToolOutput, error) {
+				output, err := next(ctx, input)
+				if err != nil {
+					// 工具调用失败，返回一个错误信息字符串，LLM 会将其作为工具结果继续推理
+					log.Printf("Tool [%s] call failed: %v, returning fallback result", input.Name, err)
+					return &compose.ToolOutput{
+						Result: fmt.Sprintf("Search tool is currently unavailable: %v. Please answer the user's question based on your own knowledge.", err),
+					}, nil // 注意：这里返回 nil error，让 ReAct 循环继续
+				}
+				return output, nil
+			}
+		},
+	}
+}
+
 // ChatModelAgent 通用聊天Agent
 func (a *Agent) ChatModelAgent() *adk.ChatModelAgent {
 
 	// 实例化大模型
-	// todo 这里未来使用工厂模式制定不同的大模型
 	model, err := llm.NewLLM().NewQwenChatModel(a.Ctx)
 	if err != nil {
 		panic(err)
 	}
 
 	// 实例化搜索Tool
-	dialer := &net.Dialer{Timeout: 15 * time.Second}
+	dialer := &net.Dialer{Timeout: 30 * time.Second}
 	ipv4HTTPClient := &http.Client{
-		Timeout: 15 * time.Second, // 降低超时，避免长时间等待
+		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				// 强制将所有连接转换为 IPv4
 				return dialer.DialContext(ctx, "tcp4", addr)
 			},
 		},
 	}
 	cfg := &duckduckgo.Config{
-		Region: duckduckgo.RegionWT,
-		// Timeout:    time.Duration(600 * time.Second),
+		Region:     duckduckgo.RegionWT,
 		MaxResults: 5,
-		HTTPClient: ipv4HTTPClient, // 使用强制 IPv4 的 Client
+		HTTPClient: ipv4HTTPClient,
 	}
 	searchTool, err := duckduckgo.NewTextSearchTool(context.Background(), cfg)
 	if err != nil {
-		// 使用 log.Printf 代替 log.Fatalf，避免进程退出
 		log.Printf("NewTextSearchTool of duckduckgo failed, err=%v, search tool will be disabled", err)
-		// searchTool 保持为 nil，在 Tools 配置时跳过
 	}
 
-	// 使用httprequest 作为搜索工具
-
-	// 构建 Tools 列表，仅在 searchTool 初始化成功时添加
+	// 构建 Tools 列表
 	var tools []tool.BaseTool
 	if searchTool != nil {
 		tools = append(tools, searchTool)
 	}
 
+	log.Printf("[Agent] searchTool initialized: %v, tools count: %d", searchTool != nil, len(tools))
+
 	chatAgent, err := adk.NewChatModelAgent(a.Ctx, &adk.ChatModelAgentConfig{
 		Name:        "intelligent_assistant",
 		Description: "An intelligent assistant capable of using multiple tools to solve complex problems",
-		Instruction: "You are a professional assistant who can use the provided tools to help users solve problems",
+		Instruction: "You are a professional assistant. When the user asks questions that require up-to-date information or web search, you can use the 'duckduckgo_text_search' tool to search for relevant information. Only answer directly from your knowledge if the tool is unavailable.",
 		Model:       model,
 		ToolsConfig: adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{
 				Tools: tools,
+				ToolCallMiddlewares: []compose.ToolMiddleware{
+					toolErrorMiddleware(),
+				},
 			},
 		},
 	})
@@ -95,32 +115,36 @@ func (a *Agent) CommonChat(query string) (string, error) {
 
 	// Init Agent runner
 	runner := adk.NewRunner(a.Ctx, adk.RunnerConfig{
-		Agent: a.ChatModelAgent(),
-		// enable stream output
+		Agent:           a.ChatModelAgent(),
 		EnableStreaming: false,
-		// enable checkpoint for interrupt & resume
-		// CheckPointStore: newInMemoryStore(),
 	})
 
 	// Start runner with a new checkpoint id
 	checkpointID := "1"
 	iter := runner.Query(a.Ctx, query, adk.WithCheckPointID(checkpointID))
 	var result string
-	var err error
 	for {
 		event, ok := iter.Next()
 		if !ok {
 			break
 		}
 		if event.Err != nil {
-			err = event.Err
-			log.Printf("Agent run error: %v", event.Err)
-			break // 不要 exit，改为 break 退出循环
+			// Agent 级别的错误（非工具错误），直接返回
+			if strings.Contains(event.Err.Error(), "invoke tool") {
+				log.Printf("Tool invoke error: %v", event.Err)
+				continue // 继续等待下一个事件
+			}
+			return "", event.Err
+		}
+
+		// 打印 Action 详情，确认是否发起了工具调用
+		if event.Action != nil {
+			log.Printf("[Agent Event] Action: exit=%v, transfer=%v, break=%v", event.Action.Exit, event.Action.TransferToAgent != nil, event.Action.BreakLoop != nil)
 		}
 		prints.Event(event)
 		if event.Output != nil {
 			result = event.Output.MessageOutput.Message.Content
 		}
 	}
-	return result, err
+	return result, nil
 }
