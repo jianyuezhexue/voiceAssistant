@@ -30,8 +30,8 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// Ws websockeDemo
-func (a *Chat) WsDemo(ctx *gin.Context) {
+// Ws链接
+func (a *Chat) WsConn(ctx *gin.Context) {
 
 	// 从查询参数获取 sessionId
 	sessionId := ctx.Query("sessionId")
@@ -74,6 +74,7 @@ func (a *Chat) WsDemo(ctx *gin.Context) {
 	// 启动读写协程 + 业务层消费
 	client.Start()
 
+	// 逻辑处理
 	chatLogic := logic.NewChatLogic(ctx)
 	chatLogic.Talk(client)
 

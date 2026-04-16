@@ -13,12 +13,12 @@ import (
 )
 
 type LLMInterface interface {
-	NewQwenChatModel(ctx context.Context) (*qwen.ChatModel, error)
-	NewOllamaChatModel(ctx context.Context) (*ollama.ChatModel, error)
+	NewQwenChatModel(ctx context.Context) (model.ToolCallingChatModel, error)
+	NewOllamaChatModel(ctx context.Context) (model.ToolCallingChatModel, error)
 }
 
 // 千问模型
-func (a *LLM) NewQwenChatModel(ctx context.Context) (*qwen.ChatModel, error) {
+func (a *LLM) NewQwenChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
 	apiKey := "sk-e692504205e74522b45710e1c25065ad"
 	modelName := "qwen-plus"
 	chatModel, err := qwen.NewChatModel(ctx, &qwen.ChatModelConfig{
@@ -54,7 +54,7 @@ func (a *LLM) NewArkChatModel(ctx context.Context) (model.ToolCallingChatModel, 
 }
 
 // ollama gpt模型
-func (a *LLM) NewOllamaChatModel(ctx context.Context) (*ollama.ChatModel, error) {
+func (a *LLM) NewOllamaChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
 	chatModel, err := ollama.NewChatModel(ctx, &ollama.ChatModelConfig{
 		BaseURL: "http://localhost:11434", // Ollama 服务地址
 		Model:   "gpt-oss:20b",            // 模型名称

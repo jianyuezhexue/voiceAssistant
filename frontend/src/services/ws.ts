@@ -49,18 +49,29 @@ class VoiceWebSocket {
 
   /**
    * 建立 WebSocket 连接
+   * @param sessionId 可选的会话 ID，会作为 query 参数带上
    */
-  connect(): void {
+  connect(sessionId?: string): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       console.log('[WS] Already connected');
       return;
     }
 
     this.isManualDisconnect = false;
-    console.log(`[WS] Connecting to ${WS_URL}...`);
+
+    // 拼接 sessionId 到 URL
+    let url = WS_URL;
+    const sid = sessionId || this.sessionId;
+    if (sid) {
+      this.sessionId = sid;
+      const sep = url.includes('?') ? '&' : '?';
+      url = `${url}${sep}sessionId=${encodeURIComponent(sid)}`;
+    }
+
+    console.log(`[WS] Connecting to ${url}...`);
 
     try {
-      this.ws = new WebSocket(WS_URL);
+      this.ws = new WebSocket(url);
       this.ws.binaryType = 'arraybuffer';
 
       this.ws.onopen = this.handleOpen.bind(this);

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"log"
 	"voice-assistant/backend/component/wspool"
+	"voice-assistant/backend/domain/agent"
 	"voice-assistant/backend/domain/chat"
-	"voice-assistant/backend/domain/llm"
 	"voice-assistant/backend/logic"
 
 	"github.com/cloudwego/eino/components/prompt"
@@ -86,14 +86,23 @@ func (l *ChatLogic) genMessage(req chat.WsMsgType) ([]*schema.Message, error) {
 // TextTalkRep 文字对话
 func (l *ChatLogic) TextTalk(req chat.WsMsgType) (chat.TalkResp, error) {
 
-	// 实例化大模型
-	llm, err := llm.NewLLM().NewQwenChatModel(l.Ctx)
-	if err != nil {
-		return chat.TalkResp{Text: "大模型初始化失败,请稍后再试"}, err
-	}
+	// // 实例化大模型
+	// llm, err := llm.NewLLM().NewQwenChatModel(l.Ctx)
+	// if err != nil {
+	// 	return chat.TalkResp{Text: "大模型初始化失败,请稍后再试"}, err
+	// }
 
-	messages, _ := l.genMessage(req)
-	aiAnswer, err := llm.Generate(l.Ctx, messages)
+	// messages, _ := l.genMessage(req)
+	// aiAnswer, err := llm.Generate(l.Ctx, messages)
+	// if err != nil {
+	// 	return chat.TalkResp{Text: "大模型对话失败,请稍后再试"}, err
+	// }
+
+	// 实例化通用Agent
+	commoAgent := agent.NewAgent(l.Ctx)
+
+	// 执行带工具的对话
+	agentAnswer, err := commoAgent.CommonChat(req.Data.Text)
 	if err != nil {
 		return chat.TalkResp{Text: "大模型对话失败,请稍后再试"}, err
 	}
@@ -101,7 +110,8 @@ func (l *ChatLogic) TextTalk(req chat.WsMsgType) (chat.TalkResp, error) {
 	res := chat.TalkResp{
 		Type:      chat.MsgTypeLLMComplete.String(),
 		SessionId: req.SessionId,
-		Text:      aiAnswer.Content,
+		// Text:      aiAnswer.Content,
+		Text: agentAnswer,
 	}
 	return res, nil
 }

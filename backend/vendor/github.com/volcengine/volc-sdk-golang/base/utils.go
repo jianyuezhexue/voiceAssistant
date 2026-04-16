@@ -17,7 +17,11 @@ import (
 	"github.com/google/uuid"
 )
 
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var (
+	letterRunes                 = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	defaultRetryTimes    uint64 = 2
+	defaultRetryInterval        = 1 * time.Second
+)
 
 func init() {
 	rand.Seed(time.Now().Unix())
@@ -85,7 +89,7 @@ func createInnerToken(credentials Credentials, sts *SecurityToken2, inlinePolicy
 	return innerToken, nil
 }
 
-func getTimeout(serviceTimeout, apiTimeout time.Duration) time.Duration {
+func getTimeout(serviceTimeout, apiTimeout, customTimeout time.Duration) time.Duration {
 	timeout := time.Second
 	if serviceTimeout != time.Duration(0) {
 		timeout = serviceTimeout
@@ -93,7 +97,37 @@ func getTimeout(serviceTimeout, apiTimeout time.Duration) time.Duration {
 	if apiTimeout != time.Duration(0) {
 		timeout = apiTimeout
 	}
+	if customTimeout != time.Duration(0) {
+		timeout = customTimeout
+	}
 	return timeout
+}
+
+func getRetrySetting(serviceRetrySettings, apiRetrySettings *RetrySettings) *RetrySettings {
+	retrySettings := &RetrySettings{
+		AutoRetry:     false,
+		RetryTimes:    new(uint64),
+		RetryInterval: new(time.Duration),
+	}
+	if !apiRetrySettings.AutoRetry || !serviceRetrySettings.AutoRetry {
+		return retrySettings
+	}
+	retrySettings.AutoRetry = true
+	if serviceRetrySettings.RetryTimes != nil {
+		retrySettings.RetryTimes = serviceRetrySettings.RetryTimes
+	} else if apiRetrySettings.RetryTimes != nil {
+		retrySettings.RetryTimes = apiRetrySettings.RetryTimes
+	} else {
+		retrySettings.RetryTimes = &defaultRetryTimes
+	}
+	if serviceRetrySettings.RetryInterval != nil {
+		retrySettings.RetryInterval = serviceRetrySettings.RetryInterval
+	} else if apiRetrySettings.RetryInterval != nil {
+		retrySettings.RetryInterval = apiRetrySettings.RetryInterval
+	} else {
+		retrySettings.RetryInterval = &defaultRetryInterval
+	}
+	return retrySettings
 }
 
 func mergeQuery(query1, query2 url.Values) (query url.Values) {
@@ -171,10 +205,35 @@ func ToUrlValues(i interface{}) (values url.Values) {
 			v = strconv.FormatFloat(f.Float(), 'f', 4, 64)
 		case []byte:
 			v = string(f.Bytes())
+		case bool:
+			v = strconv.FormatBool(f.Bool())
 		case string:
+			if f.Len() == 0 {
+				continue
+			}
 			v = f.String()
 		}
 		values.Set(typ.Field(i).Name, v)
 	}
 	return
+}
+
+func UnmarshalResultInto(data []byte, result interface{}) error {
+	resp := new(CommonResponse)
+	if err := json.Unmarshal(data, resp); err != nil {
+		return fmt.Errorf("fail to unmarshal response, %v", err)
+	}
+	errObj := resp.ResponseMetadata.Error
+	if errObj != nil && errObj.CodeN != 0 {
+		return fmt.Errorf("request %s error %s", resp.ResponseMetadata.RequestId, errObj.Message)
+	}
+
+	data, err := json.Marshal(resp.Result)
+	if err != nil {
+		return fmt.Errorf("fail to marshal result, %v", err)
+	}
+	if err = json.Unmarshal(data, result); err != nil {
+		return fmt.Errorf("fail to unmarshal result, %v", err)
+	}
+	return nil
 }

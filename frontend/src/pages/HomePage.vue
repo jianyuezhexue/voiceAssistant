@@ -134,6 +134,7 @@
 import { ref, onUnmounted, onMounted, nextTick, watch } from 'vue';
 import fvad from '@echogarden/fvad-wasm';
 import { voiceWS } from '../services/ws';
+import { getSessionId } from '../utils/session';
 import type { WSServerMessage } from '../types';
 import { MessageType, VoiceState } from '../types';
 
@@ -870,8 +871,10 @@ onMounted(async () => {
     console.error('[HomePage] VAD initialization failed');
   }
 
-  // 2. 连接 WebSocket
-  voiceWS.connect();
+  // 2. 生成 sessionId 并连接 WebSocket
+  const sessionId = await getSessionId();
+  voiceWS.setSessionId(sessionId);
+  voiceWS.connect(sessionId);
   voiceWS.onMessage(handleWSMessage);
 
   voiceWS.onConnect(() => {

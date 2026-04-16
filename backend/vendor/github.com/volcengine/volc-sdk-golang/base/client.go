@@ -1,6 +1,7 @@
 package base
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -8,21 +9,46 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/cenkalti/backoff/v4"
+	"golang.org/x/net/http/httpproxy"
 )
 
 const (
 	accessKey = "VOLC_ACCESSKEY"
 	secretKey = "VOLC_SECRETKEY"
 
+	// volc proxy
+	httpProxy     = "VOLC_HTTP_PROXY"
+	httpsProxy    = "VOLC_HTTPS_PROXY"
+	noProxy       = "VOLC_NO_PROXY"
+	requestMethod = "REQUEST_METHOD"
+
 	defaultScheme = "http"
 )
 
-var _GlobalClient *http.Client
+var (
+	_GlobalClient   *http.Client
+	emptyBytes      []byte
+	emptyReadSeeker = bytes.Buffer{}
+)
+
+func volcProxy() func(req *http.Request) (*url.URL, error) {
+	c := &httpproxy.Config{
+		HTTPProxy:  os.Getenv(httpProxy),
+		HTTPSProxy: os.Getenv(httpsProxy),
+		NoProxy:    os.Getenv(noProxy),
+		CGI:        os.Getenv(requestMethod) != "",
+	}
+	p := c.ProxyFunc()
+	return func(req *http.Request) (*url.URL, error) { return p(req.URL) }
+}
 
 func init() {
 	_GlobalClient = &http.Client{
@@ -30,19 +56,20 @@ func init() {
 			MaxIdleConns:        1000,
 			MaxIdleConnsPerHost: 100,
 			IdleConnTimeout:     10 * time.Second,
+			Proxy:               volcProxy(),
 		},
 	}
 }
 
-// Client 基础客户端
+// Client
 type Client struct {
-	Client      *http.Client
-	SdkVersion  string
-	ServiceInfo *ServiceInfo
-	ApiInfoList map[string]*ApiInfo
+	Client        *http.Client
+	ServiceInfo   *ServiceInfo
+	ApiInfoList   map[string]*ApiInfo
+	CustomTimeout time.Duration
 }
 
-// NewClient 生成一个客户端
+// NewClient
 func NewClient(info *ServiceInfo, apiInfoList map[string]*ApiInfo) *Client {
 	client := &Client{Client: _GlobalClient, ServiceInfo: info.Clone(), ApiInfoList: apiInfoList}
 
@@ -65,13 +92,6 @@ func NewClient(info *ServiceInfo, apiInfoList map[string]*ApiInfo) *Client {
 			}
 		}
 	}
-
-	content, err := ioutil.ReadFile("VERSION")
-	if err == nil {
-		client.SdkVersion = strings.TrimSpace(string(content))
-		client.ServiceInfo.Header.Set("User-Agent", strings.Join([]string{"volc-sdk-golang", client.SdkVersion}, "/"))
-	}
-
 	return client
 }
 
@@ -100,14 +120,21 @@ func (cred Credentials) Clone() Credentials {
 	}
 }
 
-// SetAccessKey 设置AK
+// SetRetrySettings
+func (client *Client) SetRetrySettings(retrySettings *RetrySettings) {
+	if retrySettings != nil {
+		client.ServiceInfo.Retry = *retrySettings
+	}
+}
+
+// SetAccessKey
 func (client *Client) SetAccessKey(ak string) {
 	if ak != "" {
 		client.ServiceInfo.Credentials.AccessKeyID = ak
 	}
 }
 
-// SetSecretKey 设置SK
+// SetSecretKey
 func (client *Client) SetSecretKey(sk string) {
 	if sk != "" {
 		client.ServiceInfo.Credentials.SecretAccessKey = sk
@@ -121,7 +148,7 @@ func (client *Client) SetSessionToken(token string) {
 	}
 }
 
-// SetHost 设置Host
+// SetHost
 func (client *Client) SetHost(host string) {
 	if host != "" {
 		client.ServiceInfo.Host = host
@@ -134,7 +161,7 @@ func (client *Client) SetScheme(scheme string) {
 	}
 }
 
-// SetCredential 设置Credentials
+// SetCredential
 func (client *Client) SetCredential(c Credentials) {
 	if c.AccessKeyID != "" {
 		client.ServiceInfo.Credentials.AccessKeyID = c.AccessKeyID
@@ -151,6 +178,10 @@ func (client *Client) SetCredential(c Credentials) {
 	if c.SessionToken != "" {
 		client.ServiceInfo.Credentials.SessionToken = c.SessionToken
 	}
+
+	if c.Service != "" {
+		client.ServiceInfo.Credentials.Service = c.Service
+	}
 }
 
 func (client *Client) SetTimeout(timeout time.Duration) {
@@ -159,12 +190,18 @@ func (client *Client) SetTimeout(timeout time.Duration) {
 	}
 }
 
-// GetSignUrl 获取签名字符串
+func (client *Client) SetCustomTimeout(timeout time.Duration) {
+	if timeout > 0 {
+		client.CustomTimeout = timeout
+	}
+}
+
+// GetSignUrl
 func (client *Client) GetSignUrl(api string, query url.Values) (string, error) {
 	apiInfo := client.ApiInfoList[api]
 
 	if apiInfo == nil {
-		return "", errors.New("相关api不存在")
+		return "", errors.New("The related api does not exist")
 	}
 
 	query = mergeQuery(query, apiInfo.Query)
@@ -178,13 +215,13 @@ func (client *Client) GetSignUrl(api string, query url.Values) (string, error) {
 	req, err := http.NewRequest(strings.ToUpper(apiInfo.Method), u.String(), nil)
 
 	if err != nil {
-		return "", errors.New("构建request失败")
+		return "", errors.New("Failed to build request")
 	}
 
 	return client.ServiceInfo.Credentials.SignUrl(req), nil
 }
 
-// SignSts2 生成sts信息
+// SignSts2
 func (client *Client) SignSts2(inlinePolicy *Policy, expire time.Duration) (*SecurityToken2, error) {
 	var err error
 	sts := new(SecurityToken2)
@@ -211,30 +248,110 @@ func (client *Client) SignSts2(inlinePolicy *Policy, expire time.Duration) (*Sec
 	return sts, nil
 }
 
-// Query 发起Get的query请求
+// Query Initiate a Get query request
 func (client *Client) Query(api string, query url.Values) ([]byte, int, error) {
-	return client.requestWithContentType(api, query, "", "")
+	return client.CtxQuery(context.Background(), api, query)
 }
 
-// Json 发起Json的post请求
+func (client *Client) CtxQuery(ctx context.Context, api string, query url.Values) ([]byte, int, error) {
+	return client.request(ctx, api, query, emptyBytes, "")
+}
+
+// Json Initiate a Json post request
 func (client *Client) Json(api string, query url.Values, body string) ([]byte, int, error) {
-	return client.requestWithContentType(api, query, body, "application/json")
+	return client.CtxJson(context.Background(), api, query, body)
 }
 
-// PostWithContentType 发起自定义 Content-Type 的 post 请求，Content-Type 不可以为空
+func (client *Client) CtxJson(ctx context.Context, api string, query url.Values, body string) ([]byte, int, error) {
+	return client.request(ctx, api, query, []byte(body), "application/json")
+}
 func (client *Client) PostWithContentType(api string, query url.Values, body string, ct string) ([]byte, int, error) {
-	return client.requestWithContentType(api, query, body, ct)
+	return client.CtxPostWithContentType(context.Background(), api, query, body, ct)
 }
 
-func (client *Client) requestWithContentType(api string, query url.Values, body string, ct string) ([]byte, int, error) {
+// CtxPostWithContentType Initiate a post request with a custom Content-Type, Content-Type cannot be empty
+func (client *Client) CtxPostWithContentType(ctx context.Context, api string, query url.Values, body string, ct string) ([]byte, int, error) {
+	return client.request(ctx, api, query, []byte(body), ct)
+}
+
+func (client *Client) Post(api string, query url.Values, form url.Values) ([]byte, int, error) {
+	return client.CtxPost(context.Background(), api, query, form)
+}
+
+// CtxPost Initiate a Post request
+func (client *Client) CtxPost(ctx context.Context, api string, query url.Values, form url.Values) ([]byte, int, error) {
+	apiInfo := client.ApiInfoList[api]
+	form = mergeQuery(form, apiInfo.Form)
+	return client.request(ctx, api, query, []byte(form.Encode()), "application/x-www-form-urlencoded")
+}
+
+func (client *Client) CtxMultiPart(ctx context.Context, api string, query url.Values, form []*MultiPartItem) ([]byte, int, error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	for _, item := range form {
+		part, err := writer.CreatePart(item.header)
+		if err != nil {
+			return nil, 400, err
+		}
+		_, err = io.Copy(part, item.data)
+		if err != nil {
+			return nil, 400, err
+		}
+	}
+	writer.Close()
+	return client.request(ctx, api, query, body.Bytes(), writer.FormDataContentType())
+}
+
+func (client *Client) makeRequest(inputContext context.Context, api string, req *http.Request, timeout time.Duration) ([]byte, int, error, bool) {
+	req = client.ServiceInfo.Credentials.Sign(req)
+
+	ctx := inputContext
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	req = req.WithContext(ctx)
+
+	resp, err := client.Client.Do(req)
+	if err != nil {
+		// should retry when client sends request error.
+		return []byte(""), 500, err, true
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return []byte(""), resp.StatusCode, err, false
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		needRetry := false
+		// should retry when server returns 5xx error.
+		if resp.StatusCode >= http.StatusInternalServerError {
+			needRetry = true
+		}
+		return body, resp.StatusCode, fmt.Errorf("api %s http code %d body %s", api, resp.StatusCode, string(body)), needRetry
+	}
+
+	return body, resp.StatusCode, nil, false
+}
+
+func (client *Client) request(ctx context.Context, api string, query url.Values, body []byte, ct string) ([]byte, int, error) {
 	apiInfo := client.ApiInfoList[api]
 
 	if apiInfo == nil {
-		return []byte(""), 500, errors.New("相关api不存在")
+		return []byte(""), 500, errors.New("The related api does not exist")
 	}
-	timeout := getTimeout(client.ServiceInfo.Timeout, apiInfo.Timeout)
+	return client.requestThumb(ctx, api, apiInfo, query, body, ct)
+}
+
+func (client *Client) requestThumb(ctx context.Context, api string, apiInfo *ApiInfo, query url.Values, body []byte, ct string) ([]byte, int, error) {
+	timeout := getTimeout(client.ServiceInfo.Timeout, apiInfo.Timeout, client.CustomTimeout)
 	header := mergeHeader(client.ServiceInfo.Header, apiInfo.Header)
 	query = mergeQuery(query, apiInfo.Query)
+	retrySettings := getRetrySetting(&client.ServiceInfo.Retry, &apiInfo.Retry)
 
 	u := url.URL{
 		Scheme:   client.ServiceInfo.Scheme,
@@ -242,49 +359,44 @@ func (client *Client) requestWithContentType(api string, query url.Values, body 
 		Path:     apiInfo.Path,
 		RawQuery: query.Encode(),
 	}
-	var requestBody io.Reader
-	if body != "" {
-		requestBody = strings.NewReader(body)
-	}
-	req, err := http.NewRequest(strings.ToUpper(apiInfo.Method), u.String(), requestBody)
+	requestBody := bytes.NewReader(body)
+	req, err := http.NewRequest(strings.ToUpper(apiInfo.Method), u.String(), nil)
 	if err != nil {
-		return []byte(""), 500, errors.New("构建request失败")
+		return []byte(""), 500, errors.New("Failed to build request")
 	}
 	req.Header = header
 	if ct != "" {
 		req.Header.Set("Content-Type", ct)
 	}
-	return client.makeRequest(api, req, timeout)
+
+	// Because service info could be changed by SetRegion, so set UA header for every request here.
+	req.Header.Set("User-Agent", strings.Join([]string{SDKName, SDKVersion}, "/"))
+
+	var resp []byte
+	var code int
+
+	err = backoff.Retry(func() error {
+		_, err = requestBody.Seek(0, io.SeekStart)
+		if err != nil {
+			// if seek failed, stop retry.
+			return backoff.Permanent(err)
+		}
+		req.Body = ioutil.NopCloser(requestBody)
+		var needRetry bool
+		resp, code, err, needRetry = client.makeRequest(ctx, api, req, timeout)
+		if needRetry {
+			return err
+		} else {
+			return backoff.Permanent(err)
+		}
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(*retrySettings.RetryInterval), *retrySettings.RetryTimes))
+	return resp, code, err
 }
 
-// Post 发起Post请求
-func (client *Client) Post(api string, query url.Values, form url.Values) ([]byte, int, error) {
-	apiInfo := client.ApiInfoList[api]
-	form = mergeQuery(form, apiInfo.Form)
-	return client.requestWithContentType(api, query, form.Encode(), "application/x-www-form-urlencoded")
+func (client *Client) CtxQueryThumb(ctx context.Context, api string, apiInfo *ApiInfo, query url.Values) ([]byte, int, error) {
+	return client.requestThumb(ctx, api, apiInfo, query, emptyBytes, "")
 }
 
-func (client *Client) makeRequest(api string, req *http.Request, timeout time.Duration) ([]byte, int, error) {
-	req = client.ServiceInfo.Credentials.Sign(req)
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	req = req.WithContext(ctx)
-
-	resp, err := client.Client.Do(req)
-	if err != nil {
-		return []byte(""), 500, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return []byte(""), resp.StatusCode, err
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return body, resp.StatusCode, fmt.Errorf("api %s http code %d body %s", api, resp.StatusCode, string(body))
-	}
-
-	return body, resp.StatusCode, nil
+func (client *Client) CtxJsonThumb(ctx context.Context, api string, apiInfo *ApiInfo, query url.Values, body []byte) ([]byte, int, error) {
+	return client.requestThumb(ctx, api, apiInfo, query, body, "application/json")
 }
