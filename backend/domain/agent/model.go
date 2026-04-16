@@ -4,16 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
-	"net/http"
 	"strings"
 	"time"
+	"voice-assistant/backend/domain/aiInfra/mcp"
 	"voice-assistant/backend/domain/llm"
 
 	"github.com/cloudwego/eino-examples/adk/common/prints"
-	"github.com/cloudwego/eino-ext/components/tool/duckduckgo/v2"
 	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
 	"github.com/gin-gonic/gin"
 )
@@ -57,38 +54,19 @@ func (a *Agent) ChatModelAgent() *adk.ChatModelAgent {
 		panic(err)
 	}
 
-	// 实例化搜索Tool
-	dialer := &net.Dialer{Timeout: 30 * time.Second}
-	ipv4HTTPClient := &http.Client{
-		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				return dialer.DialContext(ctx, "tcp4", addr)
-			},
-		},
-	}
-	cfg := &duckduckgo.Config{
-		Region:     duckduckgo.RegionWT,
-		MaxResults: 5,
-		HTTPClient: ipv4HTTPClient,
-	}
-	searchTool, err := duckduckgo.NewTextSearchTool(context.Background(), cfg)
+	// 换mcp - 使用 background context 而非 gin.Context，避免请求超时导致 MCP 客户端初始化失败
+	tools, err := mcp.NewBingSearchTools(context.Background())
 	if err != nil {
-		log.Printf("NewTextSearchTool of duckduckgo failed, err=%v, search tool will be disabled", err)
+		log.Printf("NewBingSearchTools failed, err=%v, search tool will be disabled", err)
 	}
 
-	// 构建 Tools 列表
-	var tools []tool.BaseTool
-	if searchTool != nil {
-		tools = append(tools, searchTool)
-	}
+	log.Printf("[Agent] searchTool initialized: %v, tools count: %d", tools != nil, len(tools))
 
-	log.Printf("[Agent] searchTool initialized: %v, tools count: %d", searchTool != nil, len(tools))
-
+	// 实例化Agent
 	chatAgent, err := adk.NewChatModelAgent(a.Ctx, &adk.ChatModelAgentConfig{
 		Name:        "intelligent_assistant",
 		Description: "An intelligent assistant capable of using multiple tools to solve complex problems",
-		Instruction: "You are a professional assistant. When the user asks questions that require up-to-date information or web search, you can use the 'duckduckgo_text_search' tool to search for relevant information. Only answer directly from your knowledge if the tool is unavailable.",
+		Instruction: "You are a professional assistant. When the user asks questions that require up-to-date information or web search, you can use the 'bing_search' tool to search for relevant information. Only answer directly from your knowledge if the tool is unavailable.",
 		Model:       model,
 		ToolsConfig: adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{
@@ -106,18 +84,15 @@ func (a *Agent) ChatModelAgent() *adk.ChatModelAgent {
 // 通用对话
 func (a *Agent) CommonChat(query string) (string, error) {
 
-	// 及时恢复服务
-	defer func() {
-		if r := recover(); r != nil {
-			log.Println("panic:", r)
-		}
-	}()
-
 	// Init Agent runner
 	runner := adk.NewRunner(a.Ctx, adk.RunnerConfig{
 		Agent:           a.ChatModelAgent(),
 		EnableStreaming: false,
 	})
+
+	// 装配提示词
+	// 1.加上今天的日期
+	query = fmt.Sprintf("%s,Today is %s. ", query, time.Now().Format("2006-01-02 15:04:05"))
 
 	// Start runner with a new checkpoint id
 	checkpointID := "1"
