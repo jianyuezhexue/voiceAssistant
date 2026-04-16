@@ -12,6 +12,7 @@ import (
 	"github.com/cloudwego/eino-examples/adk/common/prints"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/compose"
+	"github.com/cloudwego/eino/schema"
 	"github.com/gin-gonic/gin"
 )
 
@@ -90,13 +91,32 @@ func (a *Agent) CommonChat(query string) (string, error) {
 		EnableStreaming: false,
 	})
 
+	// 意图识别&Query改写
+	// 用户意图识别&Query改写
+	model, err := llm.NewLLM().NewQwen35flashModel(a.Ctx)
+	if err != nil {
+		log.Printf("[Agent] Query change model initialized failed, err=%v, query change will be disabled", err)
+		return "", fmt.Errorf("初始化Query改写模型失败: %w", err)
+	}
+
+	queryChangePrompt := &schema.Message{
+		Role:    "assistant",
+		Content: fmt.Sprintf("综合评估和判断用户的输入是否完整，有必要要的话帮我优化提示词，更加精准的实现目标: %s", query),
+	}
+	queryChange, err := model.Generate(a.Ctx, []*schema.Message{queryChangePrompt})
+	if err != nil {
+		log.Printf("[Agent] Query change failed, err=%v, query change will be disabled", err)
+		return "", fmt.Errorf("Query改写失败: %w", err)
+	}
+
 	// 装配提示词
 	// 1.加上今天的日期
-	query = fmt.Sprintf("%s,Today is %s. ", query, time.Now().Format("2006-01-02 15:04:05"))
+	queryChange.Content = fmt.Sprintf("%s,Today is %s. ", query, time.Now().Format("2006-01-02 15:04:05"))
+	log.Printf("[Agent] Query change: %s", queryChange.Content)
 
 	// Start runner with a new checkpoint id
 	checkpointID := "1"
-	iter := runner.Query(a.Ctx, query, adk.WithCheckPointID(checkpointID))
+	iter := runner.Query(a.Ctx, queryChange.Content, adk.WithCheckPointID(checkpointID))
 	var result string
 	for {
 		event, ok := iter.Next()

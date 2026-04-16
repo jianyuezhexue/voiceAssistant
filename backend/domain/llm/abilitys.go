@@ -15,12 +15,33 @@ import (
 type LLMInterface interface {
 	NewQwenChatModel(ctx context.Context) (model.ToolCallingChatModel, error)
 	NewOllamaChatModel(ctx context.Context) (model.ToolCallingChatModel, error)
+	NewQwen35flashModel(ctx context.Context) (model.ToolCallingChatModel, error)
 }
 
-// 千问模型
+// GLM5
 func (a *LLM) NewQwenChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
 	apiKey := "sk-e692504205e74522b45710e1c25065ad"
-	modelName := "qwen-plus"
+	modelName := "glm-5"
+	chatModel, err := qwen.NewChatModel(ctx, &qwen.ChatModelConfig{
+		BaseURL:     "https://dashscope.aliyuncs.com/compatible-mode/v1",
+		APIKey:      apiKey,
+		Timeout:     0,
+		Model:       modelName,
+		MaxTokens:   tool.Of(2048),
+		Temperature: tool.Of(float32(0.7)),
+		TopP:        tool.Of(float32(0.7)),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return chatModel, nil
+}
+
+// qwen3.5-flash
+func (a *LLM) NewQwen35flashModel(ctx context.Context) (model.ToolCallingChatModel, error) {
+	apiKey := "sk-e692504205e74522b45710e1c25065ad"
+	modelName := "qwen3.5-flash"
 	chatModel, err := qwen.NewChatModel(ctx, &qwen.ChatModelConfig{
 		BaseURL:     "https://dashscope.aliyuncs.com/compatible-mode/v1",
 		APIKey:      apiKey,
