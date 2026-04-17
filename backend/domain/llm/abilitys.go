@@ -21,7 +21,9 @@ type LLMInterface interface {
 // GLM5
 func (a *LLM) NewQwenChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
 	apiKey := "sk-e692504205e74522b45710e1c25065ad"
-	modelName := "glm-5"
+	modelName := "qwen3.6-plus"
+	// modelName := "qwen3.6-flash"
+	// modelName := "glm-5"
 	chatModel, err := qwen.NewChatModel(ctx, &qwen.ChatModelConfig{
 		BaseURL:     "https://dashscope.aliyuncs.com/compatible-mode/v1",
 		APIKey:      apiKey,

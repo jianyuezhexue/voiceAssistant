@@ -39,7 +39,7 @@ func init() {
 			IdleTimeout:    1 * time.Minute, // 临时测试
 			PingPeriod:     30 * time.Second,
 			WriteDeadline:  10 * time.Second,
-			MaxMessageSize: 4096,
+			MaxMessageSize: 1024 * 1024, // 1MB
 		}
 	})
 }

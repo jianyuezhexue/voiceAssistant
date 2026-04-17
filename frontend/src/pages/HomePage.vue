@@ -162,7 +162,7 @@ interface VADInstance {
 let vadInstance: VADInstance | null = null;
 
 // 音频能量阈值配置（过滤背景噪音）
-const ENERGY_THRESHOLD = 500; // 能量阈值，低于此值视为背景噪音
+const ENERGY_THRESHOLD = 2000; // 能量阈值，低于此值视为背景噪音
 const MIN_SPEECH_FRAMES_RATIO = 0.6; // 至少30%的帧是语音才认为是人声
 
 /**
