@@ -161,9 +161,13 @@ interface VADInstance {
 
 let vadInstance: VADInstance | null = null;
 
-// 音频能量阈值配置（过滤背景噪音）
-const ENERGY_THRESHOLD = 2000; // 能量阈值，低于此值视为背景噪音
+// 音频能量阈值配置（过滤背景噪音和音乐）
+const ENERGY_THRESHOLD = 3500; // 能量阈值，提高以过滤背景噪音
 const MIN_SPEECH_FRAMES_RATIO = 0.6; // 至少30%的帧是语音才认为是人声
+const MIN_SPEECH_RMS = 3000; // 人声最小 RMS 能量（区分人声和音乐）
+const MAX_ZCR = 0.15; // 最大零交叉率（音乐/噪音通常更高）
+const MIN_ZCR = 0.02; // 最小零交叉率（纯音调通常更低）
+const HIGH_FREQ_RATIO_THRESHOLD = 0.35; // 高频能量占比阈值（音乐通常更高）
 
 /**
  * 计算音频数据的 RMS 能量
@@ -190,6 +194,86 @@ function calculatePeak(pcmData: Int16Array): number {
     if (abs > peak) peak = abs;
   }
   return peak;
+}
+
+/**
+ * 计算零交叉率 (Zero Crossing Rate)
+ * 人声通常在 2%-15% 之间
+ * @param pcmData 16bit PCM 音频数据
+ * @returns 零交叉率 (0-1)
+ */
+function calculateZeroCrossingRate(pcmData: Int16Array): number {
+  let crossings = 0;
+  for (let i = 1; i < pcmData.length; i++) {
+    if ((pcmData[i - 1] >= 0 && pcmData[i] < 0) ||
+        (pcmData[i - 1] < 0 && pcmData[i] >= 0)) {
+      crossings++;
+    }
+  }
+  return crossings / (pcmData.length - 1);
+}
+
+/**
+ * 简单的频带能量计算（低频 vs 高频）
+ * 人声能量主要集中在低频段
+ * @param pcmData 16bit PCM 音频数据
+ * @returns 低频能量占比 (0-1)，低于阈值说明可能是音乐
+ */
+function calculateLowFreqRatio(pcmData: Int16Array): number {
+  // 简化为时域分析：计算短时能量变化率
+  // 人声有明显的音节结构，能量变化较慢
+  // 音乐通常能量分布更均匀
+  let lowFreqSum = 0;
+  let highFreqSum = 0;
+
+  // 简单的差分滤波：低频对应相邻样本差值小，高频对应差值大
+  for (let i = 1; i < pcmData.length; i++) {
+    const diff = Math.abs(pcmData[i] - pcmData[i - 1]);
+    if (i % 2 === 0) {
+      lowFreqSum += diff;
+    } else {
+      highFreqSum += diff;
+    }
+  }
+
+  const total = lowFreqSum + highFreqSum;
+  if (total === 0) return 0.5;
+  return lowFreqSum / total;
+}
+
+/**
+ * 检测音频片段是否为真人语音（而非音乐或噪音）
+ * 综合能量、零交叉率、频谱特征判断
+ * @param pcmData 16bit PCM 音频数据
+ * @returns true 如果检测到真人语音
+ */
+function isHumanSpeech(pcmData: Int16Array): boolean {
+  const energy = calculateEnergy(pcmData);
+  const peak = calculatePeak(pcmData);
+  const zcr = calculateZeroCrossingRate(pcmData);
+  const lowFreqRatio = calculateLowFreqRatio(pcmData);
+
+  // 1. 能量检查：太低是噪音，太高可能是爆音
+  if (energy < ENERGY_THRESHOLD || peak > 28000) {
+    return false;
+  }
+
+  // 2. 零交叉率检查：人声在 2%-15% 之间
+  if (zcr > MAX_ZCR || zcr < MIN_ZCR) {
+    return false;
+  }
+
+  // 3. 高频能量检查：音乐高频成分通常较多
+  if (lowFreqRatio < HIGH_FREQ_RATIO_THRESHOLD) {
+    return false;
+  }
+
+  // 4. RMS 能量检查：确保有足够的人声能量
+  if (energy < MIN_SPEECH_RMS) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -222,20 +306,18 @@ async function initVAD(): Promise<VADInstance | null> {
 
 /**
  * 检测音频数据是否包含语音
- * 结合 VAD 和能量阈值过滤背景噪音
+ * 结合 VAD、能量阈值、零交叉率和高频过滤来区分人声和音乐
  * @param pcmData 16bit PCM 音频数据，采样率 16kHz
  * @returns true 如果检测到语音
  */
 function isVoiceFrame(pcmData: Int16Array): boolean {
-  if (!vadInstance) return true; // 如果 VAD 未初始化，默认发送所有帧
-
-  // 第一步：能量检测 - 过滤低能量背景噪音
   const energy = calculateEnergy(pcmData);
   const peak = calculatePeak(pcmData);
 
-  // 如果能量太低，直接认为是背景噪音
-  if (energy < ENERGY_THRESHOLD) {
-    // console.log(`[VAD] Energy too low: ${energy.toFixed(0)}, peak: ${peak}, filtered as noise`);
+  if (!vadInstance) return isHumanSpeech(pcmData); // 如果 VAD 未初始化，使用人声检测
+
+  // 第一步：人声检测 - 过滤背景音乐和噪音
+  if (!isHumanSpeech(pcmData)) {
     return false;
   }
 
