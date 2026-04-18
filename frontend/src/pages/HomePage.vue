@@ -82,26 +82,10 @@
           </div>
 
           <!-- Input Area -->
-          <div class="input-section" :class="{ recording: isRecording, calibrating: isCalibrating }">
-
-            <!-- Calibration Panel (shown when calibrating) -->
-            <Transition name="calibration-fade">
-              <div v-if="isCalibrating" class="calibration-panel">
-                <div class="calibration-wave">
-                  <span class="cw-bar" v-for="i in 5" :key="i" :style="{ '--i': i }"></span>
-                </div>
-                <div class="calibration-info">
-                  <p class="calibration-title">正在评估背景音中，请勿讲话</p>
-                  <p class="calibration-sub">{{ calibrationCountdown > 0 ? calibrationCountdown + ' 秒后开始录音' : '校准完成，即将开始...' }}</p>
-                </div>
-                <div class="calibration-track">
-                  <div class="calibration-fill" :style="{ width: calibrationPercent + '%' }"></div>
-                </div>
-              </div>
-            </Transition>
+          <div class="input-section" :class="{ recording: isRecording }">
 
             <!-- Input Row: input + voice button + send button -->
-            <div class="input-row" v-show="!isCalibrating">
+            <div class="input-row">
               <!-- Text Input -->
               <div v-show="!isRecording" class="input-container" @click="focusInput">
                 <input ref="inputRef" v-model="textInput" type="text" class="chat-input" placeholder="输入消息..."
@@ -116,10 +100,9 @@
 
               <!-- Voice Button (toggles recording) -->
               <button class="action-btn voice-btn"
-                :class="{ recording: isRecording, calibrating: isCalibrating }"
+                :class="{ recording: isRecording }"
                 @click="toggleRecording"
-                :disabled="isCalibrating"
-                :title="isCalibrating ? '正在校准...' : (isRecording ? '结束录音' : '开始录音')">
+                :title="isRecording ? '结束录音' : '开始录音'">
                 <svg v-if="!isRecording" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
                   <path d="M19 10v2a7 7 0 01-14 0v-2" />
@@ -134,7 +117,7 @@
               </button>
 
               <!-- Send Button (sends text message) -->
-              <button class="action-btn send-btn" @click="sendTextMessage" :disabled="!textInput.trim() || isCalibrating" title="发送消息">
+              <button class="action-btn send-btn" @click="sendTextMessage" :disabled="!textInput.trim()" title="发送消息">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
@@ -151,7 +134,6 @@
 
 <script setup lang="ts">
 import { ref, onUnmounted, onMounted, nextTick, watch } from 'vue';
-import fvad from '@echogarden/fvad-wasm';
 import { voiceWS } from '../services/ws';
 import { getSessionId } from '../utils/session';
 import type { WSServerMessage } from '../types';
@@ -177,254 +159,6 @@ const inputRef = ref<HTMLInputElement | null>(null);
 
 let messageIdCounter = Date.now();
 
-// ==================== VAD 相关 ====================
-interface VADInstance {
-  vadInst: number;
-  module: any;
-}
-
-let vadInstance: VADInstance | null = null;
-
-// 音频能量阈值配置（过滤背景噪音和音乐）
-// 默认值（校准前后备选）
-const DEFAULT_ENERGY_THRESHOLD = 200;
-const DEFAULT_MIN_SPEECH_RMS = 3000;
-
-// 动态阈值（运行时校准，非常量）
-let dynEnergyThreshold = DEFAULT_ENERGY_THRESHOLD;
-let dynMinSpeechRMS = DEFAULT_MIN_SPEECH_RMS;
-
-// 以下保持不变（人声特征固定）
-const MIN_SPEECH_FRAMES_RATIO = 0.6; // 至少30%的帧是语音才认为是人声
-const MAX_ZCR = 0.15; // 最大零交叉率（音乐/噪音通常更高）
-const MIN_ZCR = 0.02; // 最小零交叉率（纯音调通常更低）
-const HIGH_FREQ_RATIO_THRESHOLD = 0.35; // 高频能量占比阈值（音乐通常更高）
-
-/**
- * 计算音频数据的 RMS 能量
- * @param pcmData 16bit PCM 音频数据
- * @returns 能量值 (0-32767)
- */
-function calculateEnergy(pcmData: Int16Array): number {
-  let sum = 0;
-  for (let i = 0; i < pcmData.length; i++) {
-    sum += pcmData[i] * pcmData[i];
-  }
-  return Math.sqrt(sum / pcmData.length);
-}
-
-/**
- * 计算音频的峰值电平
- * @param pcmData 16bit PCM 音频数据
- * @returns 峰值 (0-32767)
- */
-function calculatePeak(pcmData: Int16Array): number {
-  let peak = 0;
-  for (let i = 0; i < pcmData.length; i++) {
-    const abs = Math.abs(pcmData[i]);
-    if (abs > peak) peak = abs;
-  }
-  return peak;
-}
-
-/**
- * 计算零交叉率 (Zero Crossing Rate)
- * 人声通常在 2%-15% 之间
- * @param pcmData 16bit PCM 音频数据
- * @returns 零交叉率 (0-1)
- */
-function calculateZeroCrossingRate(pcmData: Int16Array): number {
-  let crossings = 0;
-  for (let i = 1; i < pcmData.length; i++) {
-    if ((pcmData[i - 1] >= 0 && pcmData[i] < 0) ||
-        (pcmData[i - 1] < 0 && pcmData[i] >= 0)) {
-      crossings++;
-    }
-  }
-  return crossings / (pcmData.length - 1);
-}
-
-/**
- * 简单的频带能量计算（低频 vs 高频）
- * 人声能量主要集中在低频段
- * @param pcmData 16bit PCM 音频数据
- * @returns 低频能量占比 (0-1)，低于阈值说明可能是音乐
- */
-function calculateLowFreqRatio(pcmData: Int16Array): number {
-  // 简化为时域分析：计算短时能量变化率
-  // 人声有明显的音节结构，能量变化较慢
-  // 音乐通常能量分布更均匀
-  let lowFreqSum = 0;
-  let highFreqSum = 0;
-
-  // 简单的差分滤波：低频对应相邻样本差值小，高频对应差值大
-  for (let i = 1; i < pcmData.length; i++) {
-    const diff = Math.abs(pcmData[i] - pcmData[i - 1]);
-    if (i % 2 === 0) {
-      lowFreqSum += diff;
-    } else {
-      highFreqSum += diff;
-    }
-  }
-
-  const total = lowFreqSum + highFreqSum;
-  if (total === 0) return 0.5;
-  return lowFreqSum / total;
-}
-
-/**
- * 检测音频片段是否为真人语音（而非音乐或噪音）
- * 综合能量、零交叉率、频谱特征判断
- * @param pcmData 16bit PCM 音频数据
- * @returns true 如果检测到真人语音
- */
-function isHumanSpeech(pcmData: Int16Array): boolean {
-  const energy = calculateEnergy(pcmData);
-  const peak = calculatePeak(pcmData);
-  const zcr = calculateZeroCrossingRate(pcmData);
-  const lowFreqRatio = calculateLowFreqRatio(pcmData);
-
-  // 1. 能量检查：太低是噪音，太高可能是爆音
-  if (energy < dynEnergyThreshold || peak > 28000) {
-    return false;
-  }
-
-  // 2. 零交叉率检查：人声在 2%-15% 之间
-  if (zcr > MAX_ZCR || zcr < MIN_ZCR) {
-    return false;
-  }
-
-  // 3. 高频能量检查：音乐高频成分通常较多
-  if (lowFreqRatio < HIGH_FREQ_RATIO_THRESHOLD) {
-    return false;
-  }
-
-  // 4. RMS 能量检查：确保有足够的人声能量
-  if (energy < dynMinSpeechRMS) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * 初始化 VAD (Voice Activity Detection)
- */
-async function initVAD(): Promise<VADInstance | null> {
-  try {
-    console.log('[VAD] Initializing fvad-wasm...');
-    const fvadModule = await fvad();
-
-    const vadInst = fvadModule._fvad_new();
-    if (!vadInst) {
-      console.error('[VAD] Failed to create VAD instance');
-      return null;
-    }
-
-    // 设置 VAD 模式（0-3，越高越激进
-    fvadModule._fvad_set_mode(vadInst, 3);
-
-    // 设置采样率为 16kHz
-    fvadModule._fvad_set_sample_rate(vadInst, 16000);
-
-    console.log('[VAD] VAD initialized successfully');
-    return { vadInst, module: fvadModule };
-  } catch (error) {
-    console.error('[VAD] Failed to initialize:', error);
-    return null;
-  }
-}
-
-/**
- * 检测音频数据是否包含语音
- * 结合 VAD、能量阈值、零交叉率和高频过滤来区分人声和音乐
- * @param pcmData 16bit PCM 音频数据，采样率 16kHz
- * @returns true 如果检测到语音
- */
-function isVoiceFrame(pcmData: Int16Array): boolean {
-  const energy = calculateEnergy(pcmData);
-  const peak = calculatePeak(pcmData);
-
-  if (!vadInstance) return isHumanSpeech(pcmData); // 如果 VAD 未初始化，使用人声检测
-
-  // 第一步：人声检测 - 过滤背景音乐和噪音
-  if (!isHumanSpeech(pcmData)) {
-    return false;
-  }
-
-  const { vadInst, module } = vadInstance;
-  const VAD_FRAME_SIZE = 160; // fvad 标准要求 10ms 帧 @ 16kHz
-
-  // 如果数据长度正好是一帧，直接处理
-  if (pcmData.length === VAD_FRAME_SIZE) {
-    const framePtr = module._malloc(VAD_FRAME_SIZE * 2);
-    module.HEAP16.set(pcmData, framePtr >> 1);
-    try {
-      const isSpeech = module._fvad_process(vadInst, framePtr, VAD_FRAME_SIZE) === 1;
-      console.log(`[VAD] Frame: energy=${energy.toFixed(0)}, peak=${peak}, speech=${isSpeech}`);
-      return isSpeech;
-    } finally {
-      module._free(framePtr);
-    }
-  }
-
-  // 将音频分割成 160 样本的帧进行处理
-  let speechFrames = 0;
-  const framePtr = module._malloc(VAD_FRAME_SIZE * 2);
-  try {
-    for (let i = 0; i <= pcmData.length - VAD_FRAME_SIZE; i += VAD_FRAME_SIZE) {
-      const frame = pcmData.subarray(i, i + VAD_FRAME_SIZE);
-      module.HEAP16.set(frame, framePtr >> 1);
-      if (module._fvad_process(vadInst, framePtr, VAD_FRAME_SIZE) === 1) {
-        speechFrames++;
-      }
-    }
-  } finally {
-    module._free(framePtr);
-  }
-
-  // 计算语音帧比例
-  const totalFrames = Math.floor(pcmData.length / VAD_FRAME_SIZE);
-  const speechRatio = speechFrames / totalFrames;
-  const isSpeech = speechRatio >= MIN_SPEECH_FRAMES_RATIO;
-
-  console.log(`[VAD] Buffer: energy=${energy.toFixed(0)}, peak=${peak}, speechFrames=${speechFrames}/${totalFrames} (${(speechRatio * 100).toFixed(1)}%), result=${isSpeech}`);
-
-  return isSpeech;
-}
-
-/**
- * 简化激活检测：只用能量门槛 + fvad，降低误过滤率
- * 用于 ASR 会话激活阶段，避免爆破音/清辅音被多重过滤丢弃
- * @param pcmData 16bit PCM 音频数据
- * @returns true 如果检测到语音起始
- */
-function isVoiceStart(pcmData: Int16Array): boolean {
-  const energy = calculateEnergy(pcmData);
-  if (energy < dynEnergyThreshold) return false; // 只保留能量门槛
-
-  if (!vadInstance) return true;
-
-  const { vadInst, module } = vadInstance;
-  const VAD_FRAME_SIZE = 160;
-  let speechFrames = 0;
-  const framePtr = module._malloc(VAD_FRAME_SIZE * 2);
-  try {
-    for (let i = 0; i <= pcmData.length - VAD_FRAME_SIZE; i += VAD_FRAME_SIZE) {
-      const frame = pcmData.subarray(i, i + VAD_FRAME_SIZE);
-      module.HEAP16.set(frame, framePtr >> 1);
-      if (module._fvad_process(vadInst, framePtr, VAD_FRAME_SIZE) === 1) speechFrames++;
-    }
-  } finally {
-    module._free(framePtr);
-  }
-
-  const totalFrames = Math.floor(pcmData.length / VAD_FRAME_SIZE);
-  const speechRatio = speechFrames / totalFrames;
-  console.log(`[VAD] VoiceStart: energy=${energy.toFixed(0)}, speechFrames=${speechFrames}/${totalFrames} (${(speechRatio * 100).toFixed(1)}%)`);
-  return speechRatio >= 0.3; // 降低阈值从 0.6 到 0.3，减少误过滤
-}
-
 /**
  * Float32 转 Int16 PCM
  * @param float32Array Float32 音频数据
@@ -439,88 +173,6 @@ function float32ToInt16(float32Array: Float32Array): Int16Array {
   return int16Array;
 }
 
-/**
- * 释放 VAD 实例
- */
-function destroyVAD(): void {
-  if (vadInstance) {
-    vadInstance.module._fvad_free(vadInstance.vadInst);
-    vadInstance = null;
-    console.log('[VAD] VAD instance destroyed');
-  }
-}
-
-// ==================== 校准状态 ====================
-const isCalibrating = ref(false);
-const calibrationCountdown = ref(10);
-const calibrationPercent = ref(0);
-
-/**
- * 校准背景噪音
- * 采集 10 秒麦克风音频（关闭降噪），动态计算能量阈值
- */
-async function calibrateBackgroundNoise(): Promise<void> {
-  isCalibrating.value = true;
-  calibrationCountdown.value = 10;
-  calibrationPercent.value = 0;
-
-  const DURATION = 10000;
-  const energySamples: number[] = [];
-  let stream: MediaStream | null = null;
-  let ctx: AudioContext | null = null;
-  let src: MediaStreamAudioSourceNode | null = null;
-  let proc: ScriptProcessorNode | null = null;
-
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: { sampleRate: 16000, noiseSuppression: false, echoCancellation: false, autoGainControl: false }
-    });
-    ctx = new AudioContext({ sampleRate: 16000 });
-    src = ctx.createMediaStreamSource(stream);
-    proc = ctx.createScriptProcessor(4096, 1, 1);
-
-    const startTime = Date.now();
-
-    await new Promise<void>((resolve) => {
-      proc!.onaudioprocess = (e) => {
-        const pcm = float32ToInt16(e.inputBuffer.getChannelData(0));
-        energySamples.push(calculateEnergy(pcm));
-
-        const elapsed = Date.now() - startTime;
-        calibrationCountdown.value = Math.max(0, Math.ceil((DURATION - elapsed) / 1000));
-        calibrationPercent.value = Math.min(100, (elapsed / DURATION) * 100);
-
-        if (elapsed >= DURATION) resolve();
-      };
-      src!.connect(proc!);
-      proc!.connect(ctx!.destination);
-    });
-
-    // 计算动态阈值
-    if (energySamples.length > 5) {
-      const sorted = [...energySamples].sort((a, b) => a - b);
-      const p95 = sorted[Math.floor(sorted.length * 0.95)];
-      const p99 = sorted[Math.floor(sorted.length * 0.99)];
-
-      dynEnergyThreshold = Math.max(50, p95 * 1.5);
-      dynMinSpeechRMS = Math.max(100, p99 * 2.5);
-
-      console.log(`[Calibration] p95=${p95.toFixed(0)}, p99=${p99.toFixed(0)} → dynEnergy=${dynEnergyThreshold.toFixed(0)}, dynMinSpeech=${dynMinSpeechRMS.toFixed(0)}`);
-    }
-  } catch (error) {
-    console.warn('[Calibration] Failed, using defaults:', error);
-    dynEnergyThreshold = DEFAULT_ENERGY_THRESHOLD;
-    dynMinSpeechRMS = DEFAULT_MIN_SPEECH_RMS;
-  } finally {
-    src?.disconnect();
-    proc?.disconnect();
-    ctx?.close();
-    stream?.getTracks().forEach(t => t.stop());
-    isCalibrating.value = false;
-    calibrationPercent.value = 100;
-  }
-}
-
 // ==================== 音频录制相关 ====================
 let audioContext: AudioContext | null = null;
 let audioStream: MediaStream | null = null;
@@ -531,11 +183,9 @@ let audioSource: MediaStreamAudioSourceNode | null = null;
 
 // 音频缓冲区管理
 const AUDIO_BUFFER_SIZE = 3200; // 200ms @ 16kHz = 3200 samples
+// const AUDIO_BUFFER_SIZE = 320; // 200ms @ 16kHz = 3200 samples
 let audioBuffer: Int16Array[] = [];
 let audioBufferTotalSamples = 0;
-
-// ASR 会话状态：true 表示已收到第一个语音帧，会话进行中，跳过 VAD 直接发送所有帧
-let asrSessionActive = false;
 
 /**
  * 开始录音
@@ -544,21 +194,10 @@ async function startRecording(): Promise<void> {
   try {
     console.log('[AudioRecorder] Starting recording...');
 
-    // 校准背景噪音
-    await calibrateBackgroundNoise();
-
     // 检查 WebSocket 连接
     if (!voiceWS.isConnected()) {
       console.log('[AudioRecorder] WebSocket not connected, connecting...');
       voiceWS.connect();
-    }
-
-    // 初始化 VAD（如果未初始化）
-    if (!vadInstance) {
-      vadInstance = await initVAD();
-      if (!vadInstance) {
-        console.error('[AudioRecorder] VAD initialization failed, will send all audio');
-      }
     }
 
     // 获取麦克风权限（已启用浏览器降噪）
@@ -586,44 +225,33 @@ async function startRecording(): Promise<void> {
     // 重置音频缓冲区
     audioBuffer = [];
     audioBufferTotalSamples = 0;
-    asrSessionActive = false;
 
     // 实时处理音频帧
     audioProcessor.onaudioprocess = (event) => {
-      if (!isRecording.value) return;
-
-      const inputData = event.inputBuffer.getChannelData(0); // Float32
-      const actualSampleRate = audioContext!.sampleRate;
-
-      // 如果实际采样率不是 16000Hz，做降采样
-      let pcmData: Int16Array;
-      if (actualSampleRate !== 16000) {
-        const ratio = actualSampleRate / 16000;
-        const newLength = Math.round(inputData.length / ratio);
-        const resampled = new Float32Array(newLength);
-        for (let i = 0; i < newLength; i++) {
-          resampled[i] = inputData[Math.round(i * ratio)];
+      if (!isRecording.value) return
+      const inputData = event.inputBuffer.getChannelData(0)
+      const actualRate = audioContext!.sampleRate
+      let pcmData: Int16Array
+      if (actualRate !== 16000) {
+        const ratio = actualRate / 16000
+        const newLen = Math.round(inputData.length / ratio)
+        const resampled = new Float32Array(newLen)
+        for (let i = 0; i < newLen; i++) {
+          const pos = i * ratio
+          const idx = Math.floor(pos)
+          const frac = pos - idx
+          resampled[i] = idx + 1 < inputData.length
+            ? inputData[idx] * (1 - frac) + inputData[idx + 1] * frac
+            : inputData[idx]
         }
-        pcmData = float32ToInt16(resampled);
+        pcmData = float32ToInt16(resampled)
       } else {
-        pcmData = float32ToInt16(inputData);
+        pcmData = float32ToInt16(inputData)
       }
-
-      if (asrSessionActive) {
-        // ASR 会话进行中：跳过 VAD，所有帧直接发给后端，让 NLS 处理静音判断
-        audioBuffer.push(pcmData);
-        audioBufferTotalSamples += pcmData.length;
-        if (audioBufferTotalSamples >= AUDIO_BUFFER_SIZE) {
-          sendAccumulatedAudio(false);
-        }
-      } else if (isVoiceStart(pcmData)) {
-        // 尚未开始会话：等待第一个语音帧，检测到后激活 ASR 会话
-        asrSessionActive = true;
-        audioBuffer.push(pcmData);
-        audioBufferTotalSamples += pcmData.length;
-        if (audioBufferTotalSamples >= AUDIO_BUFFER_SIZE) {
-          sendAccumulatedAudio(false);
-        }
+      audioBuffer.push(pcmData)
+      audioBufferTotalSamples += pcmData.length
+      if (audioBufferTotalSamples >= AUDIO_BUFFER_SIZE) {
+        sendAccumulatedAudio(false)
       }
     };
 
@@ -636,7 +264,7 @@ async function startRecording(): Promise<void> {
     updateAudioLevel();
 
     isRecording.value = true;
-    console.log('[AudioRecorder] Recording started with VAD filtering');
+    console.log('[AudioRecorder] Recording started');
 
   } catch (error) {
     console.error('[AudioRecorder] Failed to start recording:', error);
@@ -649,7 +277,7 @@ async function startRecording(): Promise<void> {
  * @param isLast 是否为最后一片（语音结束）
  */
 function sendAccumulatedAudio(isLast: boolean = false): void {
-  if (audioBuffer.length === 0) return;
+  if (audioBuffer.length === 0 && !isLast) return;
 
   // 合并所有缓冲区
   const totalLength = audioBufferTotalSamples;
@@ -675,10 +303,8 @@ function sendAccumulatedAudio(isLast: boolean = false): void {
 function stopRecording(): void {
   console.log('[AudioRecorder] Stopping recording...');
 
-  // 发送剩余缓冲区的音频数据（标记为最后一片）
-  if (audioBufferTotalSamples > 0) {
-    sendAccumulatedAudio(true);
-  }
+  // 发送剩余缓冲区并通知后端音频结束（即使缓冲为空也必须发，触发 ASR 会话关闭）
+  sendAccumulatedAudio(true);
 
   // 断开音频处理器连接
   if (audioSource) {
@@ -711,10 +337,9 @@ function stopRecording(): void {
     audioStream = null;
   }
 
-  // 重置缓冲区及 ASR 会话状态
+  // 重置缓冲区
   audioBuffer = [];
   audioBufferTotalSamples = 0;
-  asrSessionActive = false;
 
   isRecording.value = false;
   console.log('[AudioRecorder] Recording stopped');
@@ -738,7 +363,6 @@ function updateAudioLevel(): void {
  * 切换录音状态
  */
 async function toggleRecording(): Promise<void> {
-  if (isCalibrating.value) return;
   if (isRecording.value) {
     stopRecording();
   } else {
@@ -819,37 +443,6 @@ function initWakeWordRecognition(): any {
   };
 
   return recognition;
-}
-
-/**
- * 开始唤醒词检测
- */
-async function startWakeWordDetection(): Promise<void> {
-  console.log('[WakeWord] Starting wake word detection...');
-
-  // 先请求麦克风权限
-  try {
-    await navigator.mediaDevices.getUserMedia({
-      audio: {
-        noiseSuppression: true,
-        echoCancellation: true,
-        autoGainControl: true
-      }
-    });
-  } catch (error) {
-    console.warn('[WakeWord] Microphone permission denied');
-    return;
-  }
-
-  wakeWordRecognition = initWakeWordRecognition();
-  if (wakeWordRecognition) {
-    try {
-      wakeWordRecognition.start();
-      console.log('[WakeWord] Wake word detection started');
-    } catch (error) {
-      console.error('[WakeWord] Failed to start recognition:', error);
-    }
-  }
 }
 
 /**
@@ -1136,13 +729,7 @@ watch(messages, scrollToBottom, { deep: true });
 onMounted(async () => {
   console.log('[HomePage] Component mounted');
 
-  // 1. 初始化 VAD
-  vadInstance = await initVAD();
-  if (!vadInstance) {
-    console.error('[HomePage] VAD initialization failed');
-  }
-
-  // 2. 生成 sessionId 并连接 WebSocket
+  // 1. 生成 sessionId 并连接 WebSocket
   const sessionId = await getSessionId();
   voiceWS.setSessionId(sessionId);
   voiceWS.connect(sessionId);
@@ -1160,10 +747,6 @@ onMounted(async () => {
     console.error('[WebSocket] Error:', error);
   });
 
-  // // 3. 启动唤醒词监听（延迟 1 秒）
-  // setTimeout(() => {
-  //   startWakeWordDetection();
-  // }, 1000);
 });
 
 onUnmounted(() => {
@@ -1176,9 +759,6 @@ onUnmounted(() => {
 
   // 停止唤醒词检测
   stopWakeWordDetection();
-
-  // 释放 VAD
-  destroyVAD();
 
   // 断开 WebSocket
   voiceWS.disconnect();
