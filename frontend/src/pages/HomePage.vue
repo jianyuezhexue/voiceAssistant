@@ -152,7 +152,6 @@ const messages = ref<{ role: 'user' | 'assistant'; content: string; id: number; 
 const isRecording = ref(false);
 const isLoading = ref(false);
 const isWakeWordListening = ref(false);
-const wakeWordDetected = ref(false);
 
 const messagesContainer = ref<HTMLElement | null>(null);
 const inputRef = ref<HTMLInputElement | null>(null);
@@ -178,14 +177,14 @@ let audioContext: AudioContext | null = null;
 let audioStream: MediaStream | null = null;
 let analyser: AnalyserNode | null = null;
 let animationFrame: number | null = null;
-let audioProcessor: ScriptProcessorNode | null = null;
+let audioProcessor: AudioWorkletNode | null = null;
 let audioSource: MediaStreamAudioSourceNode | null = null;
 
-// 音频缓冲区管理
-const AUDIO_BUFFER_SIZE = 3200; // 200ms @ 16kHz = 3200 samples
-// const AUDIO_BUFFER_SIZE = 320; // 200ms @ 16kHz = 3200 samples
-let audioBuffer: Int16Array[] = [];
-let audioBufferTotalSamples = 0;
+// 主线程 PCM 累积缓冲（100ms @ 16kHz = 1600 samples）
+const PCM_SEND_SIZE = 1600;
+let pcmAccumBuffer: Int16Array[] = [];
+let pcmAccumTotal = 0;
+
 
 /**
  * 开始录音
@@ -218,40 +217,38 @@ async function startRecording(): Promise<void> {
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 256;
 
-    // 创建音频源和处理器
+    // 创建音频源和处理器（AudioWorklet）
     audioSource = audioContext.createMediaStreamSource(audioStream);
-    audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+    await audioContext.audioWorklet.addModule('/audio-processor.js');
+    audioProcessor = new AudioWorkletNode(audioContext, 'pcm-processor');
+    pcmAccumBuffer = [];
+    pcmAccumTotal = 0;
 
-    // 重置音频缓冲区
-    audioBuffer = [];
-    audioBufferTotalSamples = 0;
-
-    // 实时处理音频帧
-    audioProcessor.onaudioprocess = (event) => {
-      if (!isRecording.value) return
-      const inputData = event.inputBuffer.getChannelData(0)
-      const actualRate = audioContext!.sampleRate
-      let pcmData: Int16Array
+    const actualRate = audioContext.sampleRate;
+    audioProcessor.port.onmessage = (event) => {
+      if (!isRecording.value) return;
+      const float32: Float32Array = event.data;
+      let pcmData: Int16Array;
       if (actualRate !== 16000) {
-        const ratio = actualRate / 16000
-        const newLen = Math.round(inputData.length / ratio)
-        const resampled = new Float32Array(newLen)
+        const ratio = actualRate / 16000;
+        const newLen = Math.round(float32.length / ratio);
+        const resampled = new Float32Array(newLen);
         for (let i = 0; i < newLen; i++) {
-          const pos = i * ratio
-          const idx = Math.floor(pos)
-          const frac = pos - idx
-          resampled[i] = idx + 1 < inputData.length
-            ? inputData[idx] * (1 - frac) + inputData[idx + 1] * frac
-            : inputData[idx]
+          const pos = i * ratio;
+          const idx = Math.floor(pos);
+          const frac = pos - idx;
+          resampled[i] = idx + 1 < float32.length
+            ? float32[idx] * (1 - frac) + float32[idx + 1] * frac
+            : float32[idx];
         }
-        pcmData = float32ToInt16(resampled)
+        pcmData = float32ToInt16(resampled);
       } else {
-        pcmData = float32ToInt16(inputData)
+        pcmData = float32ToInt16(float32);
       }
-      audioBuffer.push(pcmData)
-      audioBufferTotalSamples += pcmData.length
-      if (audioBufferTotalSamples >= AUDIO_BUFFER_SIZE) {
-        sendAccumulatedAudio(false)
+      pcmAccumBuffer.push(pcmData);
+      pcmAccumTotal += pcmData.length;
+      if (pcmAccumTotal >= PCM_SEND_SIZE) {
+        flushPCMBuffer(false);
       }
     };
 
@@ -272,30 +269,7 @@ async function startRecording(): Promise<void> {
   }
 }
 
-/**
- * 发送累积的音频数据
- * @param isLast 是否为最后一片（语音结束）
- */
-function sendAccumulatedAudio(isLast: boolean = false): void {
-  if (audioBuffer.length === 0 && !isLast) return;
 
-  // 合并所有缓冲区
-  const totalLength = audioBufferTotalSamples;
-  const mergedBuffer = new Int16Array(totalLength);
-  let offset = 0;
-  for (const chunk of audioBuffer) {
-    mergedBuffer.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  // 发送音频数据（流式传输）
-  voiceWS.sendAudio(mergedBuffer.buffer, 'pcm', isLast);
-  console.log(`[AudioRecorder] Sent ${audioBuffer.length} voice frames, ${totalLength} samples, isLast=${isLast}`);
-
-  // 重置缓冲区
-  audioBuffer = [];
-  audioBufferTotalSamples = 0;
-}
 
 /**
  * 停止录音
@@ -303,8 +277,8 @@ function sendAccumulatedAudio(isLast: boolean = false): void {
 function stopRecording(): void {
   console.log('[AudioRecorder] Stopping recording...');
 
-  // 发送剩余缓冲区并通知后端音频结束（即使缓冲为空也必须发，触发 ASR 会话关闭）
-  sendAccumulatedAudio(true);
+  // 发送剩余音频并通知后端结束
+  flushPCMBuffer(true);
 
   // 断开音频处理器连接
   if (audioSource) {
@@ -337,12 +311,21 @@ function stopRecording(): void {
     audioStream = null;
   }
 
-  // 重置缓冲区
-  audioBuffer = [];
-  audioBufferTotalSamples = 0;
-
   isRecording.value = false;
   console.log('[AudioRecorder] Recording stopped');
+}
+
+function flushPCMBuffer(isLast: boolean): void {
+  if (pcmAccumTotal === 0 && !isLast) return;
+  const merged = new Int16Array(pcmAccumTotal);
+  let offset = 0;
+  for (const chunk of pcmAccumBuffer) {
+    merged.set(chunk, offset);
+    offset += chunk.length;
+  }
+  pcmAccumBuffer = [];
+  pcmAccumTotal = 0;
+  voiceWS.sendAudio(merged.buffer as ArrayBuffer, 'pcm', isLast);
 }
 
 /**
@@ -371,79 +354,7 @@ async function toggleRecording(): Promise<void> {
 }
 
 // ==================== 唤醒词检测相关 ====================
-const WAKE_WORD_REGEX = /小爱同学/;
 let wakeWordRecognition: any = null;
-
-/**
- * 初始化唤醒词识别
- */
-function initWakeWordRecognition(): any {
-  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    console.warn('[WakeWord] Web Speech API not supported in this browser');
-    return null;
-  }
-
-  const recognition = new SpeechRecognition();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = 'zh-CN';
-
-  recognition.onstart = () => {
-    console.log('[WakeWord] Recognition started');
-    isWakeWordListening.value = true;
-  };
-
-  recognition.onresult = (event: any) => {
-    let interimTranscript = '';
-    let finalTranscript = '';
-
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const transcript = event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        finalTranscript += transcript;
-      } else {
-        interimTranscript += transcript;
-      }
-    }
-
-    const combinedTranscript = (finalTranscript + interimTranscript).toLowerCase();
-    console.log('[WakeWord] Heard:', combinedTranscript);
-
-    // 检测唤醒词
-    if (WAKE_WORD_REGEX.test(combinedTranscript)) {
-      console.log('[WakeWord] Wake word detected!');
-      handleWakeWordDetected();
-    }
-  };
-
-  recognition.onerror = (event: any) => {
-    console.error('[WakeWord] Recognition error:', event.error);
-    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-      console.warn('[WakeWord] Microphone permission denied');
-      isWakeWordListening.value = false;
-    }
-  };
-
-  recognition.onend = () => {
-    console.log('[WakeWord] Recognition ended');
-    isWakeWordListening.value = false;
-    // 如果没有被唤醒词触发，且不在录音状态，则重启监听
-    if (!wakeWordDetected.value && !isRecording.value) {
-      setTimeout(() => {
-        if (wakeWordRecognition && !isRecording.value) {
-          try {
-            wakeWordRecognition.start();
-          } catch (error) {
-            console.warn('[WakeWord] Could not restart recognition');
-          }
-        }
-      }, 1000);
-    }
-  };
-
-  return recognition;
-}
 
 /**
  * 停止唤醒词检测
@@ -461,31 +372,6 @@ function stopWakeWordDetection(): void {
   console.log('[WakeWord] Wake word detection stopped');
 }
 
-/**
- * 唤醒词触发处理
- */
-function handleWakeWordDetected(): void {
-  // 防止重复触发
-  if (wakeWordDetected.value) return;
-  wakeWordDetected.value = true;
-
-  console.log('[WakeWord] Wake word detected, stopping detection...');
-
-  // 停止唤醒词检测
-  stopWakeWordDetection();
-
-  // 显示提示消息
-  messages.value.push({
-    role: 'assistant',
-    content: '听到你叫我了，正在打开语音输入...',
-    id: ++messageIdCounter,
-    createdAt: Date.now()
-  });
-  scrollToBottom();
-
-  // 立即开始录音
-  startRecording();
-}
 
 // ==================== WebSocket 消息处理 ====================
 /**

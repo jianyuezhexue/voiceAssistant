@@ -171,12 +171,12 @@ func (l *ChatLogic) processASRResults(client *wspool.WSClient, sessionId string,
 				SessionId: sessionId,
 				Text:      result.Text,
 			})
-			// if result.Text != "" {
-			// 	go l.handleText(client, chat.WsMsgType{
-			// 		SessionId: sessionId,
-			// 		Data:      chat.WsMsgData{Text: result.Text},
-			// 	})
-			// }
+			if result.Text != "" {
+				go l.handleText(client, chat.WsMsgType{
+					SessionId: sessionId,
+					Data:      chat.WsMsgData{Text: result.Text},
+				})
+			}
 			fmt.Printf("[一句话最终文字]:%s", result.Text)
 
 		case asr.ResultError:
