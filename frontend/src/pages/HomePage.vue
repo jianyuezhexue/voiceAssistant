@@ -1160,10 +1160,10 @@ onMounted(async () => {
     console.error('[WebSocket] Error:', error);
   });
 
-  // 3. 启动唤醒词监听（延迟 1 秒）
-  setTimeout(() => {
-    startWakeWordDetection();
-  }, 1000);
+  // // 3. 启动唤醒词监听（延迟 1 秒）
+  // setTimeout(() => {
+  //   startWakeWordDetection();
+  // }, 1000);
 });
 
 onUnmounted(() => {
