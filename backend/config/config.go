@@ -28,8 +28,11 @@ type ConfigType struct {
 
 // Asr 封装了初始化实时语音识别所需的基本配置
 type Asr struct {
-	AppKey string
-	Token  string
+	AppKey             string
+	Token              string
+	VocabularyId       string
+	CustomizationId    string
+	MaxSentenceSilence int
 }
 
 var Config ConfigType

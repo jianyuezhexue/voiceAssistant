@@ -82,9 +82,26 @@
           </div>
 
           <!-- Input Area -->
-          <div class="input-section" :class="{ recording: isRecording }">
+          <div class="input-section" :class="{ recording: isRecording, calibrating: isCalibrating }">
+
+            <!-- Calibration Panel (shown when calibrating) -->
+            <Transition name="calibration-fade">
+              <div v-if="isCalibrating" class="calibration-panel">
+                <div class="calibration-wave">
+                  <span class="cw-bar" v-for="i in 5" :key="i" :style="{ '--i': i }"></span>
+                </div>
+                <div class="calibration-info">
+                  <p class="calibration-title">正在评估背景音中，请勿讲话</p>
+                  <p class="calibration-sub">{{ calibrationCountdown > 0 ? calibrationCountdown + ' 秒后开始录音' : '校准完成，即将开始...' }}</p>
+                </div>
+                <div class="calibration-track">
+                  <div class="calibration-fill" :style="{ width: calibrationPercent + '%' }"></div>
+                </div>
+              </div>
+            </Transition>
+
             <!-- Input Row: input + voice button + send button -->
-            <div class="input-row">
+            <div class="input-row" v-show="!isCalibrating">
               <!-- Text Input -->
               <div v-show="!isRecording" class="input-container" @click="focusInput">
                 <input ref="inputRef" v-model="textInput" type="text" class="chat-input" placeholder="输入消息..."
@@ -98,8 +115,11 @@
               </div>
 
               <!-- Voice Button (toggles recording) -->
-              <button class="action-btn voice-btn" :class="{ recording: isRecording }" @click="toggleRecording"
-                :title="isRecording ? '结束录音' : '开始录音'">
+              <button class="action-btn voice-btn"
+                :class="{ recording: isRecording, calibrating: isCalibrating }"
+                @click="toggleRecording"
+                :disabled="isCalibrating"
+                :title="isCalibrating ? '正在校准...' : (isRecording ? '结束录音' : '开始录音')">
                 <svg v-if="!isRecording" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
                   <path d="M19 10v2a7 7 0 01-14 0v-2" />
@@ -114,7 +134,7 @@
               </button>
 
               <!-- Send Button (sends text message) -->
-              <button class="action-btn send-btn" @click="sendTextMessage" :disabled="!textInput.trim()" title="发送消息">
+              <button class="action-btn send-btn" @click="sendTextMessage" :disabled="!textInput.trim() || isCalibrating" title="发送消息">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
@@ -166,9 +186,16 @@ interface VADInstance {
 let vadInstance: VADInstance | null = null;
 
 // 音频能量阈值配置（过滤背景噪音和音乐）
-const ENERGY_THRESHOLD = 1500; // 能量阈值，提高以过滤背景噪音
+// 默认值（校准前后备选）
+const DEFAULT_ENERGY_THRESHOLD = 200;
+const DEFAULT_MIN_SPEECH_RMS = 3000;
+
+// 动态阈值（运行时校准，非常量）
+let dynEnergyThreshold = DEFAULT_ENERGY_THRESHOLD;
+let dynMinSpeechRMS = DEFAULT_MIN_SPEECH_RMS;
+
+// 以下保持不变（人声特征固定）
 const MIN_SPEECH_FRAMES_RATIO = 0.6; // 至少30%的帧是语音才认为是人声
-const MIN_SPEECH_RMS = 3000; // 人声最小 RMS 能量（区分人声和音乐）
 const MAX_ZCR = 0.15; // 最大零交叉率（音乐/噪音通常更高）
 const MIN_ZCR = 0.02; // 最小零交叉率（纯音调通常更低）
 const HIGH_FREQ_RATIO_THRESHOLD = 0.35; // 高频能量占比阈值（音乐通常更高）
@@ -258,7 +285,7 @@ function isHumanSpeech(pcmData: Int16Array): boolean {
   const lowFreqRatio = calculateLowFreqRatio(pcmData);
 
   // 1. 能量检查：太低是噪音，太高可能是爆音
-  if (energy < ENERGY_THRESHOLD || peak > 28000) {
+  if (energy < dynEnergyThreshold || peak > 28000) {
     return false;
   }
 
@@ -273,7 +300,7 @@ function isHumanSpeech(pcmData: Int16Array): boolean {
   }
 
   // 4. RMS 能量检查：确保有足够的人声能量
-  if (energy < MIN_SPEECH_RMS) {
+  if (energy < dynMinSpeechRMS) {
     return false;
   }
 
@@ -367,6 +394,38 @@ function isVoiceFrame(pcmData: Int16Array): boolean {
 }
 
 /**
+ * 简化激活检测：只用能量门槛 + fvad，降低误过滤率
+ * 用于 ASR 会话激活阶段，避免爆破音/清辅音被多重过滤丢弃
+ * @param pcmData 16bit PCM 音频数据
+ * @returns true 如果检测到语音起始
+ */
+function isVoiceStart(pcmData: Int16Array): boolean {
+  const energy = calculateEnergy(pcmData);
+  if (energy < dynEnergyThreshold) return false; // 只保留能量门槛
+
+  if (!vadInstance) return true;
+
+  const { vadInst, module } = vadInstance;
+  const VAD_FRAME_SIZE = 160;
+  let speechFrames = 0;
+  const framePtr = module._malloc(VAD_FRAME_SIZE * 2);
+  try {
+    for (let i = 0; i <= pcmData.length - VAD_FRAME_SIZE; i += VAD_FRAME_SIZE) {
+      const frame = pcmData.subarray(i, i + VAD_FRAME_SIZE);
+      module.HEAP16.set(frame, framePtr >> 1);
+      if (module._fvad_process(vadInst, framePtr, VAD_FRAME_SIZE) === 1) speechFrames++;
+    }
+  } finally {
+    module._free(framePtr);
+  }
+
+  const totalFrames = Math.floor(pcmData.length / VAD_FRAME_SIZE);
+  const speechRatio = speechFrames / totalFrames;
+  console.log(`[VAD] VoiceStart: energy=${energy.toFixed(0)}, speechFrames=${speechFrames}/${totalFrames} (${(speechRatio * 100).toFixed(1)}%)`);
+  return speechRatio >= 0.3; // 降低阈值从 0.6 到 0.3，减少误过滤
+}
+
+/**
  * Float32 转 Int16 PCM
  * @param float32Array Float32 音频数据
  * @returns Int16Array PCM 数据
@@ -391,6 +450,77 @@ function destroyVAD(): void {
   }
 }
 
+// ==================== 校准状态 ====================
+const isCalibrating = ref(false);
+const calibrationCountdown = ref(10);
+const calibrationPercent = ref(0);
+
+/**
+ * 校准背景噪音
+ * 采集 10 秒麦克风音频（关闭降噪），动态计算能量阈值
+ */
+async function calibrateBackgroundNoise(): Promise<void> {
+  isCalibrating.value = true;
+  calibrationCountdown.value = 10;
+  calibrationPercent.value = 0;
+
+  const DURATION = 10000;
+  const energySamples: number[] = [];
+  let stream: MediaStream | null = null;
+  let ctx: AudioContext | null = null;
+  let src: MediaStreamAudioSourceNode | null = null;
+  let proc: ScriptProcessorNode | null = null;
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { sampleRate: 16000, noiseSuppression: false, echoCancellation: false, autoGainControl: false }
+    });
+    ctx = new AudioContext({ sampleRate: 16000 });
+    src = ctx.createMediaStreamSource(stream);
+    proc = ctx.createScriptProcessor(4096, 1, 1);
+
+    const startTime = Date.now();
+
+    await new Promise<void>((resolve) => {
+      proc!.onaudioprocess = (e) => {
+        const pcm = float32ToInt16(e.inputBuffer.getChannelData(0));
+        energySamples.push(calculateEnergy(pcm));
+
+        const elapsed = Date.now() - startTime;
+        calibrationCountdown.value = Math.max(0, Math.ceil((DURATION - elapsed) / 1000));
+        calibrationPercent.value = Math.min(100, (elapsed / DURATION) * 100);
+
+        if (elapsed >= DURATION) resolve();
+      };
+      src!.connect(proc!);
+      proc!.connect(ctx!.destination);
+    });
+
+    // 计算动态阈值
+    if (energySamples.length > 5) {
+      const sorted = [...energySamples].sort((a, b) => a - b);
+      const p95 = sorted[Math.floor(sorted.length * 0.95)];
+      const p99 = sorted[Math.floor(sorted.length * 0.99)];
+
+      dynEnergyThreshold = Math.max(50, p95 * 1.5);
+      dynMinSpeechRMS = Math.max(100, p99 * 2.5);
+
+      console.log(`[Calibration] p95=${p95.toFixed(0)}, p99=${p99.toFixed(0)} → dynEnergy=${dynEnergyThreshold.toFixed(0)}, dynMinSpeech=${dynMinSpeechRMS.toFixed(0)}`);
+    }
+  } catch (error) {
+    console.warn('[Calibration] Failed, using defaults:', error);
+    dynEnergyThreshold = DEFAULT_ENERGY_THRESHOLD;
+    dynMinSpeechRMS = DEFAULT_MIN_SPEECH_RMS;
+  } finally {
+    src?.disconnect();
+    proc?.disconnect();
+    ctx?.close();
+    stream?.getTracks().forEach(t => t.stop());
+    isCalibrating.value = false;
+    calibrationPercent.value = 100;
+  }
+}
+
 // ==================== 音频录制相关 ====================
 let audioContext: AudioContext | null = null;
 let audioStream: MediaStream | null = null;
@@ -404,12 +534,18 @@ const AUDIO_BUFFER_SIZE = 3200; // 200ms @ 16kHz = 3200 samples
 let audioBuffer: Int16Array[] = [];
 let audioBufferTotalSamples = 0;
 
+// ASR 会话状态：true 表示已收到第一个语音帧，会话进行中，跳过 VAD 直接发送所有帧
+let asrSessionActive = false;
+
 /**
  * 开始录音
  */
 async function startRecording(): Promise<void> {
   try {
     console.log('[AudioRecorder] Starting recording...');
+
+    // 校准背景噪音
+    await calibrateBackgroundNoise();
 
     // 检查 WebSocket 连接
     if (!voiceWS.isConnected()) {
@@ -437,6 +573,7 @@ async function startRecording(): Promise<void> {
 
     // 创建 AudioContext（16kHz 采样率）
     audioContext = new AudioContext({ sampleRate: 16000 });
+    console.log('[AudioRecorder] Actual AudioContext sampleRate:', audioContext.sampleRate);
 
     // 创建分析器（用于可视化）
     analyser = audioContext.createAnalyser();
@@ -449,21 +586,41 @@ async function startRecording(): Promise<void> {
     // 重置音频缓冲区
     audioBuffer = [];
     audioBufferTotalSamples = 0;
+    asrSessionActive = false;
 
     // 实时处理音频帧
     audioProcessor.onaudioprocess = (event) => {
       if (!isRecording.value) return;
 
       const inputData = event.inputBuffer.getChannelData(0); // Float32
-      const pcmData = float32ToInt16(inputData); // 转为 Int16 PCM
+      const actualSampleRate = audioContext!.sampleRate;
 
-      // VAD 检测
-      if (isVoiceFrame(pcmData)) {
-        // 累积语音帧到缓冲区
+      // 如果实际采样率不是 16000Hz，做降采样
+      let pcmData: Int16Array;
+      if (actualSampleRate !== 16000) {
+        const ratio = actualSampleRate / 16000;
+        const newLength = Math.round(inputData.length / ratio);
+        const resampled = new Float32Array(newLength);
+        for (let i = 0; i < newLength; i++) {
+          resampled[i] = inputData[Math.round(i * ratio)];
+        }
+        pcmData = float32ToInt16(resampled);
+      } else {
+        pcmData = float32ToInt16(inputData);
+      }
+
+      if (asrSessionActive) {
+        // ASR 会话进行中：跳过 VAD，所有帧直接发给后端，让 NLS 处理静音判断
         audioBuffer.push(pcmData);
         audioBufferTotalSamples += pcmData.length;
-
-        // 当缓冲区达到 200ms 时发送（流式中间片段）
+        if (audioBufferTotalSamples >= AUDIO_BUFFER_SIZE) {
+          sendAccumulatedAudio(false);
+        }
+      } else if (isVoiceStart(pcmData)) {
+        // 尚未开始会话：等待第一个语音帧，检测到后激活 ASR 会话
+        asrSessionActive = true;
+        audioBuffer.push(pcmData);
+        audioBufferTotalSamples += pcmData.length;
         if (audioBufferTotalSamples >= AUDIO_BUFFER_SIZE) {
           sendAccumulatedAudio(false);
         }
@@ -554,9 +711,10 @@ function stopRecording(): void {
     audioStream = null;
   }
 
-  // 重置缓冲区
+  // 重置缓冲区及 ASR 会话状态
   audioBuffer = [];
   audioBufferTotalSamples = 0;
+  asrSessionActive = false;
 
   isRecording.value = false;
   console.log('[AudioRecorder] Recording stopped');
@@ -580,6 +738,7 @@ function updateAudioLevel(): void {
  * 切换录音状态
  */
 async function toggleRecording(): Promise<void> {
+  if (isCalibrating.value) return;
   if (isRecording.value) {
     stopRecording();
   } else {
@@ -765,19 +924,23 @@ function handleWSMessage(message: WSServerMessage): void {
 
     // ========== ASR 识别完成（用户语音识别文字） ==========
     case MessageType.ASR_COMPLETE:
-      if (message.data) {
-        const asrData = message.data as { text?: string; confidence?: number };
-        if (asrData?.text) {
-          console.log('[WebSocket] ASR complete:', asrData.text);
-          // 添加用户消息到对话列表
-          messages.value.push({
-            role: 'user',
-            content: asrData.text,
-            id: ++messageIdCounter,
-            createdAt: Date.now()
-          });
-          scrollToBottom();
-        }
+      if (message.text) {
+        console.log('[WebSocket] ASR complete:', message.text);
+        messages.value.push({
+          role: 'user',
+          content: message.text,
+          id: ++messageIdCounter,
+          createdAt: Date.now()
+        });
+        messages.value.push({
+          role: 'assistant',
+          content: '思考中...',
+          id: ++messageIdCounter,
+          thinking: true,
+          createdAt: Date.now()
+        });
+        isLoading.value = true;
+        scrollToBottom();
       }
       break;
 
@@ -1414,6 +1577,94 @@ onUnmounted(() => {
 
 .input-section.recording {
   background: linear-gradient(180deg, rgba(249, 115, 22, 0.02) 0%, rgba(249, 115, 22, 0.06) 100%);
+}
+
+.input-section.calibrating {
+  background: linear-gradient(180deg, rgba(249, 115, 22, 0.02) 0%, rgba(249, 115, 22, 0.08) 100%);
+}
+
+/* Calibration Panel */
+.calibration-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  background: rgba(249, 115, 22, 0.04);
+  border: 2px solid rgba(249, 115, 22, 0.2);
+  border-radius: 16px;
+  margin-bottom: 8px;
+}
+
+.calibration-wave {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+}
+
+.cw-bar {
+  display: block;
+  width: 4px;
+  background: var(--color-primary);
+  border-radius: 2px;
+  animation: cw-bounce 1.2s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.15s);
+  opacity: 0.7;
+}
+
+.cw-bar:nth-child(1) { height: 12px; }
+.cw-bar:nth-child(2) { height: 20px; }
+.cw-bar:nth-child(3) { height: 28px; }
+.cw-bar:nth-child(4) { height: 20px; }
+.cw-bar:nth-child(5) { height: 12px; }
+
+@keyframes cw-bounce {
+  0%, 100% { transform: scaleY(0.5); opacity: 0.4; }
+  50% { transform: scaleY(1.3); opacity: 1; }
+}
+
+.calibration-info {
+  text-align: center;
+}
+
+.calibration-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 0 0 4px;
+}
+
+.calibration-sub {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.calibration-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(249, 115, 22, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.calibration-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light));
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.calibration-fade-enter-active,
+.calibration-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.calibration-fade-enter-from,
+.calibration-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 /* Input Row Layout */

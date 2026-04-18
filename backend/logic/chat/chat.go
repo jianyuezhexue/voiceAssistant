@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 	"voice-assistant/backend/component/asr"
 	"voice-assistant/backend/component/wspool"
 	"voice-assistant/backend/domain/agent"
@@ -16,8 +17,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// ChatLogic handles voice and text conversation for a single WebSocket session.
 type ChatLogic struct {
 	logic.BaseLogic
+	asrMu     sync.Mutex
 	asrClient *asr.RealTimeASR
 }
 
@@ -25,161 +28,197 @@ func NewChatLogic(ctx *gin.Context) *ChatLogic {
 	return &ChatLogic{BaseLogic: logic.BaseLogic{Ctx: ctx}}
 }
 
-// Talk 通过 wspool 的读通道驱动对话
+// Talk is the main message-dispatch loop. It blocks until the client disconnects.
 func (l *ChatLogic) Talk(client *wspool.WSClient) {
+	defer l.cleanup(client.SessionId)
+
 	for {
-		// 从读通道获取消息（阻塞直到有消息或连接关闭）
 		wsMsg := client.ReadMessage()
 		if wsMsg == nil {
-			log.Printf("[ChatLogic] session=%s 读通道关闭，退出对话", client.SessionId)
 			return
 		}
 
-		// 解析消息
-		var msgData chat.WsMsgType
-		if err := json.Unmarshal(wsMsg.Data, &msgData); err != nil {
-			log.Printf("[ChatLogic] session=%s 消息解析失败: %v", client.SessionId, err)
+		var msg chat.WsMsgType
+		if err := json.Unmarshal(wsMsg.Data, &msg); err != nil {
 			continue
 		}
 
-		// 对话类型分流
-		// 文字对话
-		res := chat.TalkResp{}
-		if msgData.Type == chat.MsgTypeUserText.String() {
-			res, _ = l.TextTalk(msgData)
-		}
-
-		// 语音对话
-		if msgData.Type == chat.MsgTypeUserAudio.String() {
-			// 初始化实时语音识别
-			if l.asrClient == nil {
-				asrClient, err := asr.NewRealTimeASR(true)
-				if err != nil {
-					log.Printf("[ChatLogic] session=%s 创建ASR实例失败: %v", client.SessionId, err)
-					continue
-				}
-				l.asrClient = asrClient
-			}
-
-			res, _ = l.SpeechTalk(msgData)
-		}
-
-		// 通过写通道回写
-		resJSON, _ := json.Marshal(res)
-		if !client.Send(resJSON) {
-			log.Printf("[ChatLogic] session=%s 写队列满或已关闭，退出对话", client.SessionId)
-			return
+		switch msg.Type {
+		case chat.MsgTypeUserText.String():
+			go l.handleText(client, msg)
+		case chat.MsgTypeUserAudio.String():
+			l.handleAudio(client, msg)
+		default:
+			log.Printf("[ChatLogic] session=%s unknown message type: %s", client.SessionId, msg.Type)
 		}
 	}
 }
 
-// 处理大模型对话
+// cleanup releases ASR resources when the session ends.
+func (l *ChatLogic) cleanup(sessionId string) {
+	l.asrMu.Lock()
+	cur := l.asrClient
+	l.asrClient = nil
+	l.asrMu.Unlock()
+	if cur != nil {
+		log.Printf("[ChatLogic] session=%s cleaning up ASR", sessionId)
+		cur.Stop()
+	}
+}
+
+// ─── Text conversation ────────────────────────────────────────────────────────
+
+// handleText calls the LLM and sends the reply back to the client.
+// Runs in a goroutine so it does not block the dispatch loop.
+func (l *ChatLogic) handleText(client *wspool.WSClient, msg chat.WsMsgType) {
+	resp, err := l.TextTalk(msg)
+	if err != nil {
+		l.sendError(client, msg.SessionId, err.Error())
+		return
+	}
+	l.sendMsg(client, resp)
+}
+
+// TextTalk calls the LLM agent and returns a structured response.
+func (l *ChatLogic) TextTalk(req chat.WsMsgType) (chat.TalkResp, error) {
+	commonAgent := agent.NewAgent(l.Ctx)
+	answer, err := commonAgent.CommonChat(req.Data.Text)
+	if err != nil {
+		return chat.TalkResp{Text: "大模型对话失败，请稍后再试"}, err
+	}
+	return chat.TalkResp{
+		Type:      chat.MsgTypeLLMComplete.String(),
+		SessionId: req.SessionId,
+		Text:      answer,
+	}, nil
+}
+
+// ─── Voice conversation ───────────────────────────────────────────────────────
+
+// handleAudio manages the ASR lifecycle and forwards audio chunks.
+// Called synchronously from the dispatch loop to preserve audio ordering.
+func (l *ChatLogic) handleAudio(client *wspool.WSClient, msg chat.WsMsgType) {
+	// First chunk: initialise and start the ASR session.
+	l.asrMu.Lock()
+	needStart := l.asrClient == nil
+	l.asrMu.Unlock()
+
+	if needStart {
+		asrClient, err := asr.NewRealTimeASR(true)
+		if err != nil {
+			log.Printf("[ChatLogic] session=%s ASR init error: %v", client.SessionId, err)
+			l.sendError(client, msg.SessionId, "语音识别服务初始化失败")
+			return
+		}
+
+		resultChan, err := asrClient.Start("PCM", 16000)
+		if err != nil {
+			log.Printf("[ChatLogic] session=%s ASR start error: %v", client.SessionId, err)
+			l.sendError(client, msg.SessionId, "语音识别服务启动失败")
+			return
+		}
+
+		l.asrMu.Lock()
+		l.asrClient = asrClient
+		l.asrMu.Unlock()
+		go l.processASRResults(client, msg.SessionId, resultChan)
+	}
+
+	// Forward audio data to the NLS service.
+	if len(msg.Data.Audio) > 0 {
+		l.asrMu.Lock()
+		cur := l.asrClient
+		l.asrMu.Unlock()
+		if cur != nil {
+			if err := cur.SendAudio(msg.Data.Audio); err != nil {
+				log.Printf("[ChatLogic] session=%s SendAudio error: %v", client.SessionId, err)
+			}
+		}
+	}
+
+	// Last chunk: stop ASR and let processASRResults drain remaining events.
+	if msg.Data.IsLast {
+		log.Printf("[ChatLogic] session=%s last audio chunk received, stopping ASR", client.SessionId)
+		l.asrMu.Lock()
+		cur := l.asrClient
+		l.asrClient = nil
+		l.asrMu.Unlock()
+		if cur != nil {
+			if err := cur.Stop(); err != nil {
+				log.Printf("[ChatLogic] session=%s ASR stop error: %v", client.SessionId, err)
+			}
+		}
+	}
+}
+
+// processASRResults drains the ASR result channel and sends events to the client.
+// For each complete sentence it also triggers an LLM call.
+func (l *ChatLogic) processASRResults(client *wspool.WSClient, sessionId string, results <-chan asr.ASRResult) {
+	for result := range results {
+		switch result.Type {
+
+		case asr.ResultInterim:
+			l.sendMsg(client, chat.TalkResp{
+				Type:      chat.MsgTypeASRResult.String(),
+				SessionId: sessionId,
+				Text:      result.Text,
+			})
+			fmt.Printf("[过程转文字]:%s", result.Text)
+
+		case asr.ResultSentenceEnd:
+			l.sendMsg(client, chat.TalkResp{
+				Type:      chat.MsgTypeASRComplete.String(),
+				SessionId: sessionId,
+				Text:      result.Text,
+			})
+			// if result.Text != "" {
+			// 	go l.handleText(client, chat.WsMsgType{
+			// 		SessionId: sessionId,
+			// 		Data:      chat.WsMsgData{Text: result.Text},
+			// 	})
+			// }
+			fmt.Printf("[一句话最终文字]:%s", result.Text)
+
+		case asr.ResultError:
+			l.asrMu.Lock()
+			l.asrClient = nil
+			l.asrMu.Unlock()
+			l.sendError(client, sessionId, "语音识别失败，请重试")
+		}
+	}
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+func (l *ChatLogic) sendMsg(client *wspool.WSClient, resp chat.TalkResp) {
+	data, err := json.Marshal(resp)
+	if err != nil {
+		log.Printf("[ChatLogic] marshal error: %v", err)
+		return
+	}
+	if !client.Send(data) {
+		log.Printf("[ChatLogic] session=%s send failed (channel full or closed)", client.SessionId)
+	}
+}
+
+func (l *ChatLogic) sendError(client *wspool.WSClient, sessionId, msg string) {
+	l.sendMsg(client, chat.TalkResp{
+		Type:      chat.MsgTypeError.String(),
+		SessionId: sessionId,
+		Text:      msg,
+	})
+}
+
+// genMessage builds an LLM prompt from a user message.
+// Kept for future direct-LLM usage; currently the agent pipeline is used instead.
 func (l *ChatLogic) genMessage(req chat.WsMsgType) ([]*schema.Message, error) {
-	// todo 根据 sessionId 存储和读取所有历史对话
-
-	// todo 超过10句，或者token超过 1000,则将历史对话总结压缩成1一句话
-
-	// 大模型文档
-	// 创建模板，使用 FString 格式
 	template := prompt.FromMessages(schema.FString,
-		// 系统消息模板
 		schema.SystemMessage("你是一个{role}。你需要用{style}的语气回答问题。"),
-		// todo 这里实现历史对话内容和历史对话压缩
-		// schema.MessagesPlaceholder("chat_history", true),
-		// 用户消息模板
 		schema.UserMessage("问题: {question}"),
 	)
-
-	// 使用模板生成消息
-	messages, err := template.Format(context.Background(), map[string]any{
+	return template.Format(context.Background(), map[string]any{
 		"role":     "专业的个人助手",
 		"style":    "积极、温暖且专业",
 		"question": req.Data.Text,
 	})
-
-	return messages, err
-}
-
-// TextTalkRep 文字对话
-func (l *ChatLogic) TextTalk(req chat.WsMsgType) (chat.TalkResp, error) {
-
-	// // 实例化大模型
-	// llm, err := llm.NewLLM().NewQwenChatModel(l.Ctx)
-	// if err != nil {
-	// 	return chat.TalkResp{Text: "大模型初始化失败,请稍后再试"}, err
-	// }
-
-	// messages, _ := l.genMessage(req)
-	// aiAnswer, err := llm.Generate(l.Ctx, messages)
-	// if err != nil {
-	// 	return chat.TalkResp{Text: "大模型对话失败,请稍后再试"}, err
-	// }
-
-	// 实例化通用Agent
-	commoAgent := agent.NewAgent(l.Ctx)
-
-	// 执行带工具的对话
-	agentAnswer, err := commoAgent.CommonChat(req.Data.Text)
-	if err != nil {
-		return chat.TalkResp{Text: "大模型对话失败,请稍后再试"}, err
-	}
-
-	res := chat.TalkResp{
-		Type:      chat.MsgTypeLLMComplete.String(),
-		SessionId: req.SessionId,
-		// Text:      aiAnswer.Content,
-		Text: agentAnswer,
-	}
-	return res, nil
-}
-
-// SpeechTalk 语音对话
-func (l *ChatLogic) SpeechTalk(req chat.WsMsgType) (chat.TalkResp, error) {
-
-	// 校验初始化完成
-	if l.asrClient == nil {
-		fmt.Println("asrClient 初始化失败")
-		return chat.TalkResp{Text: "系统繁忙请稍后再试"}, nil
-	}
-
-	// todo 和前端ws连接同步关闭来避免内存溢出
-	resultChan, err := l.asrClient.Start("PCM", 16000)
-	if err != nil {
-		fmt.Println(err)
-		return chat.TalkResp{Text: "语音识别启动,请稍后再试"}, err
-	}
-
-	// 发送实时语音
-	err = l.asrClient.SendAudio(req.Data.Audio)
-	if err != nil {
-		fmt.Println(err)
-		return chat.TalkResp{Text: "语音发送失败,请稍后再试"}, err
-	}
-
-	// 开启协程处理识别结果
-	resp := chat.TalkResp{}
-	go func() {
-		for res := range resultChan {
-			switch res.Type {
-			case "Temp":
-				fmt.Printf("\r[临时] %s", res.RawMessage) // 覆盖式打印中间结果
-				resp = chat.TalkResp{
-					Type:      chat.MsgTypeASRResult.String(),
-					SessionId: req.SessionId,
-					Text:      res.Text,
-				}
-			case "Final":
-				fmt.Printf("\n[最终] %s\n", res.RawMessage)
-				resp = chat.TalkResp{
-					Type:      chat.MsgTypeLLMComplete.String(),
-					SessionId: req.SessionId,
-					Text:      res.Text,
-				}
-			case "Error":
-				fmt.Printf("\n[错误] %s\n", res.RawMessage)
-			}
-		}
-		fmt.Println("识别通道已关闭")
-	}()
-	return resp, nil
 }
