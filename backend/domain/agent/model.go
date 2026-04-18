@@ -82,39 +82,44 @@ func (a *Agent) ChatModelAgent() *adk.ChatModelAgent {
 	return chatAgent
 }
 
-// 通用对话
+// CommonChat 通用对话，带 60s 超时保护
 func (a *Agent) CommonChat(query string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
-	// Init Agent runner
+	// 意图识别 & Query 改写
+	model, err := llm.NewLLM().NewQwen35flashModel(a.Ctx)
+	if err != nil {
+		log.Printf("[Agent] Query rewrite model init failed: %v, using raw query", err)
+	}
+
+	rewrittenQuery := query
+	if model != nil {
+		queryChangePrompt := &schema.Message{
+			Role:    schema.User,
+			Content: fmt.Sprintf("用户输入如下：%s\n综合评估用户输入是否完整，必要时优化提示词使目标更精准，结合用户意图，有必要的话加上今天的日期: %s\n只输出改写后的提示词，不要解释。", query, time.Now().Format("2006-01-02")),
+		}
+		log.Printf("[Agent] Rewriting query: %s", query)
+		queryChange, err := model.Generate(ctx, []*schema.Message{queryChangePrompt})
+		if err != nil {
+			log.Printf("[Agent] Query rewrite failed: %v, using raw query", err)
+		} else {
+			rewrittenQuery = queryChange.Content
+			log.Printf("[Agent] Rewritten query: %s", rewrittenQuery)
+		}
+	}
+
+	// 初始化 Runner
 	runner := adk.NewRunner(a.Ctx, adk.RunnerConfig{
 		Agent:           a.ChatModelAgent(),
 		EnableStreaming: false,
 	})
 
-	// 意图识别&Query改写
-	// 用户意图识别&Query改写
-	model, err := llm.NewLLM().NewQwen35flashModel(a.Ctx)
-	if err != nil {
-		log.Printf("[Agent] Query change model initialized failed, err=%v, query change will be disabled", err)
-		return "", fmt.Errorf("初始化Query改写模型失败: %w", err)
-	}
+	// 每次对话使用唯一 checkpointID，避免多会话共享历史
+	checkpointID := fmt.Sprintf("session_%d", time.Now().UnixNano())
+	log.Printf("[Agent] Starting runner with checkpointID=%s", checkpointID)
 
-	queryChangePrompt := &schema.Message{
-		Role:    "assistant",
-		Content: fmt.Sprintf("用户输入如下：%s,综合评估和判断用户的输入是否完整，有必要要的话帮我优化提示词，更加精准的实现目标,结合用户意图，有必要的话加上今天的日期: %s", query, time.Now().Format("2006-01-02")),
-	}
-	queryChange, err := model.Generate(a.Ctx, []*schema.Message{queryChangePrompt})
-	if err != nil {
-		log.Printf("[Agent] Query change failed, err=%v, query change will be disabled", err)
-		return "", fmt.Errorf("Query改写失败: %w", err)
-	}
-
-	// 装配提示词
-	// todo more...
-
-	// Start runner with a new checkpoint id
-	checkpointID := "1"
-	iter := runner.Query(a.Ctx, queryChange.Content, adk.WithCheckPointID(checkpointID))
+	iter := runner.Query(ctx, rewrittenQuery, adk.WithCheckPointID(checkpointID))
 	var result string
 	for {
 		event, ok := iter.Next()
@@ -122,15 +127,12 @@ func (a *Agent) CommonChat(query string) (string, error) {
 			break
 		}
 		if event.Err != nil {
-			// Agent 级别的错误（非工具错误），直接返回
 			if strings.Contains(event.Err.Error(), "invoke tool") {
-				log.Printf("Tool invoke error: %v", event.Err)
-				continue // 继续等待下一个事件
+				log.Printf("[Agent] Tool invoke error: %v", event.Err)
+				continue
 			}
 			return "", event.Err
 		}
-
-		// 打印 Action 详情，确认是否发起了工具调用
 		if event.Action != nil {
 			log.Printf("[Agent Event] Action: exit=%v, transfer=%v, break=%v", event.Action.Exit, event.Action.TransferToAgent != nil, event.Action.BreakLoop != nil)
 		}
@@ -139,5 +141,6 @@ func (a *Agent) CommonChat(query string) (string, error) {
 			result = event.Output.MessageOutput.Message.Content
 		}
 	}
+	log.Printf("[Agent] CommonChat done, result length=%d", len(result))
 	return result, nil
 }
