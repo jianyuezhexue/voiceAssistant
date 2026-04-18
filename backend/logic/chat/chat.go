@@ -3,7 +3,9 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
+	"voice-assistant/backend/component/asr"
 	"voice-assistant/backend/component/wspool"
 	"voice-assistant/backend/domain/agent"
 	"voice-assistant/backend/domain/chat"
@@ -16,6 +18,7 @@ import (
 
 type ChatLogic struct {
 	logic.BaseLogic
+	asrClient *asr.RealTimeASR
 }
 
 func NewChatLogic(ctx *gin.Context) *ChatLogic {
@@ -40,10 +43,24 @@ func (l *ChatLogic) Talk(client *wspool.WSClient) {
 		}
 
 		// 对话类型分流
+		// 文字对话
 		res := chat.TalkResp{}
 		if msgData.Type == chat.MsgTypeUserText.String() {
 			res, _ = l.TextTalk(msgData)
-		} else if msgData.Type == chat.MsgTypeUserAudio.String() {
+		}
+
+		// 语音对话
+		if msgData.Type == chat.MsgTypeUserAudio.String() {
+			// 初始化实时语音识别
+			if l.asrClient == nil {
+				asrClient, err := asr.NewRealTimeASR(true)
+				if err != nil {
+					log.Printf("[ChatLogic] session=%s 创建ASR实例失败: %v", client.SessionId, err)
+					continue
+				}
+				l.asrClient = asrClient
+			}
+
 			res, _ = l.SpeechTalk(msgData)
 		}
 
@@ -118,10 +135,51 @@ func (l *ChatLogic) TextTalk(req chat.WsMsgType) (chat.TalkResp, error) {
 
 // SpeechTalk 语音对话
 func (l *ChatLogic) SpeechTalk(req chat.WsMsgType) (chat.TalkResp, error) {
-	res := chat.TalkResp{
-		Type:      chat.MsgTypeLLMComplete.String(),
-		SessionId: req.SessionId,
-		Text:      "测试语音对话",
+
+	// 校验初始化完成
+	if l.asrClient == nil {
+		fmt.Println("asrClient 初始化失败")
+		return chat.TalkResp{Text: "系统繁忙请稍后再试"}, nil
 	}
-	return res, nil
+
+	// todo 和前端ws连接同步关闭来避免内存溢出
+	resultChan, err := l.asrClient.Start("PCM", 16000)
+	if err != nil {
+		fmt.Println(err)
+		return chat.TalkResp{Text: "语音识别启动,请稍后再试"}, err
+	}
+
+	// 发送实时语音
+	err = l.asrClient.SendAudio(req.Data.Audio)
+	if err != nil {
+		fmt.Println(err)
+		return chat.TalkResp{Text: "语音发送失败,请稍后再试"}, err
+	}
+
+	// 开启协程处理识别结果
+	resp := chat.TalkResp{}
+	go func() {
+		for res := range resultChan {
+			switch res.Type {
+			case "Temp":
+				fmt.Printf("\r[临时] %s", res.RawMessage) // 覆盖式打印中间结果
+				resp = chat.TalkResp{
+					Type:      chat.MsgTypeASRResult.String(),
+					SessionId: req.SessionId,
+					Text:      res.Text,
+				}
+			case "Final":
+				fmt.Printf("\n[最终] %s\n", res.RawMessage)
+				resp = chat.TalkResp{
+					Type:      chat.MsgTypeLLMComplete.String(),
+					SessionId: req.SessionId,
+					Text:      res.Text,
+				}
+			case "Error":
+				fmt.Printf("\n[错误] %s\n", res.RawMessage)
+			}
+		}
+		fmt.Println("识别通道已关闭")
+	}()
+	return resp, nil
 }

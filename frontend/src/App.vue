@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, type Component } from 'vue';
 import HomePage from './pages/HomePage.vue';
 import TodoPage from './pages/TodoPage.vue';
 import KnowledgePage from './pages/KnowledgePage.vue';
@@ -7,6 +7,14 @@ import KnowledgePage from './pages/KnowledgePage.vue';
 type PageName = 'home' | 'todo' | 'knowledge';
 
 const currentPage = ref<PageName>('home');
+
+const componentMap: Record<PageName, Component> = {
+  home: HomePage,
+  todo: TodoPage,
+  knowledge: KnowledgePage,
+};
+
+const currentPageComponent = computed(() => componentMap[currentPage.value]);
 
 function switchPage(page: PageName) {
   currentPage.value = page;
@@ -51,11 +59,9 @@ function switchPage(page: PageName) {
 
     <!-- Main Content -->
     <main class="app-main">
-      <transition name="page" mode="out-in">
-        <HomePage v-if="currentPage === 'home'" key="home" />
-        <TodoPage v-else-if="currentPage === 'todo'" key="todo" />
-        <KnowledgePage v-else-if="currentPage === 'knowledge'" key="knowledge" />
-      </transition>
+      <KeepAlive include="home,todo,knowledge">
+        <component :is="currentPageComponent" :key="currentPage" />
+      </KeepAlive>
     </main>
   </div>
 </template>

@@ -20,6 +20,7 @@ type LLMInterface interface {
 
 // GLM5
 func (a *LLM) NewQwenChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
+	// todo 使用env文件存储密钥
 	apiKey := "sk-e692504205e74522b45710e1c25065ad"
 	modelName := "qwen3.6-plus"
 	// modelName := "qwen3.6-flash"
@@ -42,6 +43,7 @@ func (a *LLM) NewQwenChatModel(ctx context.Context) (model.ToolCallingChatModel,
 
 // qwen3.5-flash
 func (a *LLM) NewQwen35flashModel(ctx context.Context) (model.ToolCallingChatModel, error) {
+	// todo 使用env文件存储密钥
 	apiKey := "sk-e692504205e74522b45710e1c25065ad"
 	modelName := "qwen3.5-flash"
 	chatModel, err := qwen.NewChatModel(ctx, &qwen.ChatModelConfig{

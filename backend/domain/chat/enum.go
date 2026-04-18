@@ -15,6 +15,7 @@ const (
 	MsgTypeStateUpdate MessageType = "state_update" // 状态更新
 	MsgTypeError       MessageType = "error"        // 错误消息
 	MsgTypeInterrupt   MessageType = "interrupt"    // 打断通知
+	MsgTypeAudioEnd    MessageType = "audio_end"    // 音频结束信号
 	MsgTypePing        MessageType = "ping"         // 心跳
 	MsgTypePong        MessageType = "pong"         // 心跳
 )

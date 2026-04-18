@@ -23,6 +23,13 @@ type ConfigType struct {
 		Address  string `json:"address"`
 		Password string `json:"password"`
 	}
+	Asr Asr
+}
+
+// Asr 封装了初始化实时语音识别所需的基本配置
+type Asr struct {
+	AppKey string
+	Token  string
 }
 
 var Config ConfigType

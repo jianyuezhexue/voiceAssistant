@@ -101,7 +101,7 @@ func (a *Agent) CommonChat(query string) (string, error) {
 
 	queryChangePrompt := &schema.Message{
 		Role:    "assistant",
-		Content: fmt.Sprintf("综合评估和判断用户的输入是否完整，有必要要的话帮我优化提示词，更加精准的实现目标: %s", query),
+		Content: fmt.Sprintf("用户输入如下：%s,综合评估和判断用户的输入是否完整，有必要要的话帮我优化提示词，更加精准的实现目标,结合用户意图，有必要的话加上今天的日期: %s", query, time.Now().Format("2006-01-02")),
 	}
 	queryChange, err := model.Generate(a.Ctx, []*schema.Message{queryChangePrompt})
 	if err != nil {
@@ -110,9 +110,7 @@ func (a *Agent) CommonChat(query string) (string, error) {
 	}
 
 	// 装配提示词
-	// 1.加上今天的日期
-	queryChange.Content = fmt.Sprintf("%s,Today is %s. ", query, time.Now().Format("2006-01-02 15:04:05"))
-	log.Printf("[Agent] Query change: %s", queryChange.Content)
+	// todo more...
 
 	// Start runner with a new checkpoint id
 	checkpointID := "1"

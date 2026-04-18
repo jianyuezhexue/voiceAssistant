@@ -64,8 +64,7 @@
                     <p v-else>{{ msg.content }}</p>
                   </div>
                   <div class="message-meta">
-                    <span class="time">{{ new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-                      }}</span>
+                    <span class="time">{{ formatTime(msg.createdAt) }}</span>
                   </div>
                 </div>
               </div>
@@ -138,10 +137,15 @@ import { getSessionId } from '../utils/session';
 import type { WSServerMessage } from '../types';
 import { MessageType, VoiceState } from '../types';
 
+// 定义组件名称，供 KeepAlive 使用
+defineOptions({
+  name: 'home'
+});
+
 // ==================== 状态管理 ====================
 const textInput = ref('');
-const messages = ref<{ role: 'user' | 'assistant'; content: string; id: number; thinking?: boolean }[]>([
-  { role: 'assistant', content: '你好！我是语音助手，请问有什么可以帮助你的吗？', id: Date.now() }
+const messages = ref<{ role: 'user' | 'assistant'; content: string; id: number; thinking?: boolean; createdAt: number }[]>([
+  { role: 'assistant', content: '你好！我是语音助手，请问有什么可以帮助你的吗？', id: Date.now(), createdAt: Date.now() }
 ]);
 const isRecording = ref(false);
 const isLoading = ref(false);
@@ -162,7 +166,7 @@ interface VADInstance {
 let vadInstance: VADInstance | null = null;
 
 // 音频能量阈值配置（过滤背景噪音和音乐）
-const ENERGY_THRESHOLD = 3500; // 能量阈值，提高以过滤背景噪音
+const ENERGY_THRESHOLD = 1500; // 能量阈值，提高以过滤背景噪音
 const MIN_SPEECH_FRAMES_RATIO = 0.6; // 至少30%的帧是语音才认为是人声
 const MIN_SPEECH_RMS = 3000; // 人声最小 RMS 能量（区分人声和音乐）
 const MAX_ZCR = 0.15; // 最大零交叉率（音乐/噪音通常更高）
@@ -722,7 +726,8 @@ function handleWakeWordDetected(): void {
   messages.value.push({
     role: 'assistant',
     content: '听到你叫我了，正在打开语音输入...',
-    id: ++messageIdCounter
+    id: ++messageIdCounter,
+    createdAt: Date.now()
   });
   scrollToBottom();
 
@@ -768,7 +773,8 @@ function handleWSMessage(message: WSServerMessage): void {
           messages.value.push({
             role: 'user',
             content: asrData.text,
-            id: ++messageIdCounter
+            id: ++messageIdCounter,
+            createdAt: Date.now()
           });
           scrollToBottom();
         }
@@ -777,16 +783,26 @@ function handleWSMessage(message: WSServerMessage): void {
 
     // ========== LLM 流式文本（打字机效果） ==========
     case MessageType.LLM_TEXT:
-      if (message.data) {
-        const llmData = message.data as { text?: string; isChunk?: boolean };
-        console.log('[WebSocket] LLM chunk:', llmData.text);
-
-        // 添加用户消息到对话列表
-        messages.value.push({
-          role: 'user',
-          content: message.text,
-          id: ++messageIdCounter
-        });
+      if (message.text) {
+        console.log('[WebSocket] LLM chunk:', message.text);
+        // 查找并更新"思考中"占位消息
+        const thinkingIdx = messages.value.findIndex(m => m.thinking);
+        if (thinkingIdx !== -1) {
+          messages.value[thinkingIdx] = {
+            ...messages.value[thinkingIdx],
+            role: 'assistant',
+            content: message.text,
+            thinking: false
+          };
+        } else {
+          // 如果没有思考中消息，直接添加
+          messages.value.push({
+            role: 'assistant',
+            content: message.text,
+            id: ++messageIdCounter,
+            createdAt: Date.now()
+          });
+        }
         scrollToBottom();
       }
       break;
@@ -794,20 +810,23 @@ function handleWSMessage(message: WSServerMessage): void {
     // ========== LLM 回复完成（大模型回复文字） ==========
     case MessageType.LLM_COMPLETE:
       if (message.text) {
+        console.log('[WebSocket] LLM complete:', message.text);
         // 查找并替换"思考中"占位消息
         const thinkingIdx = messages.value.findIndex(m => m.thinking);
         if (thinkingIdx !== -1) {
           messages.value[thinkingIdx] = {
+            ...messages.value[thinkingIdx],
             role: 'assistant',
             content: message.text,
-            id: messages.value[thinkingIdx].id
+            thinking: false
           };
         } else {
           // 如果没有思考中消息，直接添加
           messages.value.push({
             role: 'assistant',
             content: message.text,
-            id: ++messageIdCounter
+            id: ++messageIdCounter,
+            createdAt: Date.now()
           });
         }
         isLoading.value = false;
@@ -845,15 +864,16 @@ function handleWSMessage(message: WSServerMessage): void {
         const errThinkingIdx = messages.value.findIndex(m => m.thinking);
         if (errThinkingIdx !== -1) {
           messages.value[errThinkingIdx] = {
+            ...messages.value[errThinkingIdx],
             role: 'assistant',
-            content: `抱歉，出错了: ${errorData?.message || '未知错误'}`,
-            id: messages.value[errThinkingIdx].id
+            content: `抱歉，出错了: ${errorData?.message || '未知错误'}`
           };
         } else {
           messages.value.push({
             role: 'assistant',
             content: `抱歉，出错了: ${errorData?.message || '未知错误'}`,
-            id: ++messageIdCounter
+            id: ++messageIdCounter,
+            createdAt: Date.now()
           });
         }
         isLoading.value = false;
@@ -894,7 +914,8 @@ async function sendTextMessage(): Promise<void> {
   messages.value.push({
     role: 'user',
     content: userMessage,
-    id: ++messageIdCounter
+    id: ++messageIdCounter,
+    createdAt: Date.now()
   });
 
   // 添加"思考中"占位消息
@@ -903,7 +924,8 @@ async function sendTextMessage(): Promise<void> {
     role: 'assistant',
     content: '思考中...',
     id: thinkingId,
-    thinking: true
+    thinking: true,
+    createdAt: Date.now()
   });
   scrollToBottom();
 
@@ -918,9 +940,9 @@ async function sendTextMessage(): Promise<void> {
     const idx = messages.value.findIndex(m => m.id === thinkingId);
     if (idx !== -1) {
       messages.value[idx] = {
+        ...messages.value[idx],
         role: 'assistant',
-        content: '抱歉，发送消息失败，请稍后重试。',
-        id: thinkingId
+        content: '抱歉，发送消息失败，请稍后重试。'
       };
     }
     isLoading.value = false;
@@ -929,6 +951,10 @@ async function sendTextMessage(): Promise<void> {
 }
 
 // ==================== 工具函数 ====================
+function formatTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+}
+
 function scrollToBottom(): void {
   nextTick(() => {
     if (messagesContainer.value) {

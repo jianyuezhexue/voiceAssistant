@@ -3,6 +3,11 @@ import { ref, onMounted, computed } from 'vue';
 import { knowledgeApi } from '../services/api';
 import type { Knowledge } from '../types';
 
+// 定义组件名称，供 KeepAlive 使用
+defineOptions({
+  name: 'knowledge'
+});
+
 const knowledgeItems = ref<Knowledge[]>([]);
 const isLoading = ref(true);
 const searchQuery = ref('');

@@ -3,6 +3,11 @@ import { ref, onMounted, computed } from 'vue';
 import { todoApi } from '../services/api';
 import type { Todo } from '../types';
 
+// 定义组件名称，供 KeepAlive 使用
+defineOptions({
+  name: 'todo'
+});
+
 const todos = ref<Todo[]>([]);
 const isLoading = ref(true);
 const newTodoTitle = ref('');
