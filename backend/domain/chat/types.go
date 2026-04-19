@@ -32,5 +32,7 @@ type WsMsgData struct {
 type TalkResp struct {
 	Type      string `json:"type"`
 	SessionId string `json:"sessionId"`
-	Text      string `json:"text"`
+	Text      string `json:"text,omitempty"`
+	Audio     []byte `json:"audio,omitempty"`  // TTS 音频分片（json 自动 base64 编码）
+	Format    string `json:"format,omitempty"` // TTS 音频格式, e.g. mp3
 }

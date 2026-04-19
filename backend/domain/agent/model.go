@@ -12,7 +12,6 @@ import (
 	"github.com/cloudwego/eino-examples/adk/common/prints"
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino/schema"
 	"github.com/gin-gonic/gin"
 )
 
@@ -50,7 +49,8 @@ func toolErrorMiddleware() compose.ToolMiddleware {
 func (a *Agent) ChatModelAgent() *adk.ChatModelAgent {
 
 	// 实例化大模型
-	model, err := llm.NewLLM().NewQwenChatModel(a.Ctx)
+	// model, err := llm.NewLLM().NewQwenChatModel(a.Ctx)
+	model, err := llm.NewLLM().NewQwen35flashModel(a.Ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -87,27 +87,27 @@ func (a *Agent) CommonChat(query string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	// 意图识别 & Query 改写
-	model, err := llm.NewLLM().NewQwen35flashModel(a.Ctx)
-	if err != nil {
-		log.Printf("[Agent] Query rewrite model init failed: %v, using raw query", err)
-	}
+	// // 意图识别 & Query 改写
+	// model, err := llm.NewLLM().NewQwen35flashModel(a.Ctx)
+	// if err != nil {
+	// 	log.Printf("[Agent] Query rewrite model init failed: %v, using raw query", err)
+	// }
 
-	rewrittenQuery := query
-	if model != nil {
-		queryChangePrompt := &schema.Message{
-			Role:    schema.User,
-			Content: fmt.Sprintf("用户输入如下：%s\n综合评估用户输入是否完整，必要时优化提示词使目标更精准，结合用户意图，有必要的话加上今天的日期: %s\n只输出改写后的提示词，不要解释。", query, time.Now().Format("2006-01-02")),
-		}
-		log.Printf("[Agent] Rewriting query: %s", query)
-		queryChange, err := model.Generate(ctx, []*schema.Message{queryChangePrompt})
-		if err != nil {
-			log.Printf("[Agent] Query rewrite failed: %v, using raw query", err)
-		} else {
-			rewrittenQuery = queryChange.Content
-			log.Printf("[Agent] Rewritten query: %s", rewrittenQuery)
-		}
-	}
+	// rewrittenQuery := query
+	// if model != nil {
+	// 	queryChangePrompt := &schema.Message{
+	// 		Role:    schema.User,
+	// 		Content: fmt.Sprintf("用户输入如下：%s\n综合评估用户输入是否完整，必要时优化提示词使目标更精准，结合用户意图，有必要的话加上今天的日期: %s\n只输出改写后的提示词，不要解释。", query, time.Now().Format("2006-01-02")),
+	// 	}
+	// 	log.Printf("[Agent] Rewriting query: %s", query)
+	// 	queryChange, err := model.Generate(ctx, []*schema.Message{queryChangePrompt})
+	// 	if err != nil {
+	// 		log.Printf("[Agent] Query rewrite failed: %v, using raw query", err)
+	// 	} else {
+	// 		rewrittenQuery = queryChange.Content
+	// 		log.Printf("[Agent] Rewritten query: %s", rewrittenQuery)
+	// 	}
+	// }
 
 	// 初始化 Runner
 	runner := adk.NewRunner(a.Ctx, adk.RunnerConfig{
@@ -119,7 +119,7 @@ func (a *Agent) CommonChat(query string) (string, error) {
 	checkpointID := fmt.Sprintf("session_%d", time.Now().UnixNano())
 	log.Printf("[Agent] Starting runner with checkpointID=%s", checkpointID)
 
-	iter := runner.Query(ctx, rewrittenQuery, adk.WithCheckPointID(checkpointID))
+	iter := runner.Query(ctx, query, adk.WithCheckPointID(checkpointID))
 	var result string
 	for {
 		event, ok := iter.Next()

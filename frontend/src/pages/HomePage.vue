@@ -135,6 +135,7 @@
 <script setup lang="ts">
 import { ref, onUnmounted, onMounted, nextTick, watch } from 'vue';
 import { voiceWS } from '../services/ws';
+import { ttsPlayer } from '../services/ttsPlayer';
 import { getSessionId } from '../utils/session';
 import type { WSServerMessage } from '../types';
 import { MessageType, VoiceState } from '../types';
@@ -157,6 +158,9 @@ const messagesContainer = ref<HTMLElement | null>(null);
 const inputRef = ref<HTMLInputElement | null>(null);
 
 let messageIdCounter = Date.now();
+
+// 标记当前是否正在接收 TTS 音频流，用于在第一片到达时启动 player
+let ttsActive = false;
 
 /**
  * Float32 转 Int16 PCM
@@ -478,23 +482,22 @@ function handleWSMessage(message: WSServerMessage): void {
 
     // ========== TTS 音频数据 ==========
     case MessageType.TTS_AUDIO:
-      if (message.data instanceof ArrayBuffer) {
-        console.log('[WebSocket] Received TTS audio (binary)');
-        // TODO: 播放 TTS 音频
-      } else if (message.data) {
-        // 处理 base64 格式的音频数据
-        const ttsData = message.data as { audio?: string; isLast?: boolean };
-        if (ttsData?.audio) {
-          console.log('[WebSocket] Received TTS audio (base64)');
-          // TODO: 解码 base64 并播放音频
+      if (message.audio) {
+        if (!ttsActive) {
+          ttsPlayer.start(message.format || 'mp3');
+          ttsActive = true;
         }
+        ttsPlayer.feed(message.audio);
       }
       break;
 
     // ========== TTS 播放完成 ==========
     case MessageType.TTS_COMPLETE:
       console.log('[WebSocket] TTS complete');
-      // TODO: 更新 UI 状态，表示播放完成
+      if (ttsActive) {
+        ttsPlayer.finish();
+        ttsActive = false;
+      }
       break;
 
     // ========== 错误消息 ==========
@@ -645,6 +648,10 @@ onUnmounted(() => {
 
   // 停止唤醒词检测
   stopWakeWordDetection();
+
+  // 停止 TTS 播放并释放资源
+  ttsPlayer.stop();
+  ttsActive = false;
 
   // 断开 WebSocket
   voiceWS.disconnect();

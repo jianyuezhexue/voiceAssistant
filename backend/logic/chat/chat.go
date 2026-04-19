@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 	"voice-assistant/backend/component/asr"
 	"voice-assistant/backend/component/wspool"
+	"voice-assistant/backend/config"
 	"voice-assistant/backend/domain/agent"
 	"voice-assistant/backend/domain/chat"
 	"voice-assistant/backend/logic"
@@ -68,7 +70,10 @@ func (l *ChatLogic) cleanup(sessionId string) {
 
 // ─── Text conversation ────────────────────────────────────────────────────────
 
-// handleText calls the LLM and sends the reply back to the client.
+// handleText calls the LLM and returns the text reply.
+// If the request originated from voice input (msg.Type == user_audio), it
+// also streams a TTS audio rendering back to the client; pure-text requests
+// receive only the text reply.
 // Runs in a goroutine so it does not block the dispatch loop.
 func (l *ChatLogic) handleText(client *wspool.WSClient, msg chat.WsMsgType) {
 	resp, err := l.TextTalk(msg)
@@ -77,6 +82,10 @@ func (l *ChatLogic) handleText(client *wspool.WSClient, msg chat.WsMsgType) {
 		return
 	}
 	l.sendMsg(client, resp)
+	// if msg.Type == chat.MsgTypeUserAudio.String() {
+	l.speak(client, resp.SessionId, resp.Text)
+	// }
+
 }
 
 // TextTalk calls the LLM agent and returns a structured response.
@@ -174,6 +183,7 @@ func (l *ChatLogic) processASRResults(client *wspool.WSClient, sessionId string,
 			if result.Text != "" {
 				go l.handleText(client, chat.WsMsgType{
 					SessionId: sessionId,
+					Type:      chat.MsgTypeUserAudio.String(), // 标记为语音入口，触发 TTS 回复
 					Data:      chat.WsMsgData{Text: result.Text},
 				})
 			}
@@ -188,7 +198,103 @@ func (l *ChatLogic) processASRResults(client *wspool.WSClient, sessionId string,
 	}
 }
 
+// ─── TTS ─────────────────────────────────────────────────────────────────────
+
+// speak synthesizes text into audio and streams chunks back to the client
+// as tts_audio frames, followed by a tts_complete marker.
+// Blocks until synthesis finishes, fails, or the 30s timeout expires.
+func (l *ChatLogic) speak(client *wspool.WSClient, sessionId, text string) {
+	if text == "" {
+		return
+	}
+
+	tts, err := asr.NewTTS(false, false)
+	if err != nil {
+		log.Printf("[ChatLogic] session=%s TTS init error: %v", sessionId, err)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	format := config.Config.Tts.Format
+	if format == "" {
+		format = "mp3"
+	}
+
+	err = tts.Synthesize(ctx, text, func(chunk []byte) error {
+		if !client.Send(mustMarshal(chat.TalkResp{
+			Type:      chat.MsgTypeTTSAudio.String(),
+			SessionId: sessionId,
+			Audio:     chunk,
+			Format:    format,
+		})) {
+			return fmt.Errorf("client send failed")
+		}
+		return nil
+	})
+	if err != nil {
+		log.Printf("[ChatLogic] session=%s TTS synthesize error: %v", sessionId, err)
+		l.sendError(client, sessionId, "语音合成失败")
+		return
+	}
+
+	l.sendMsg(client, chat.TalkResp{
+		Type:      chat.MsgTypeTTSComplete.String(),
+		SessionId: sessionId,
+	})
+}
+
+// SpeakStream renders a stream of text segments (typically sentence-level
+// output from a streaming LLM) into continuous ws audio. Reserved for the
+// future streaming-LLM path; see asr.TTS.SynthesizeStream.
+func (l *ChatLogic) SpeakStream(client *wspool.WSClient, sessionId string, textCh <-chan string) {
+	tts, err := asr.NewTTS(false, true)
+	if err != nil {
+		log.Printf("[ChatLogic] session=%s TTS init error: %v", sessionId, err)
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	format := config.Config.Tts.Format
+	if format == "" {
+		format = "mp3"
+	}
+
+	err = tts.SynthesizeStream(ctx, textCh, func(chunk []byte) error {
+		if !client.Send(mustMarshal(chat.TalkResp{
+			Type:      chat.MsgTypeTTSAudio.String(),
+			SessionId: sessionId,
+			Audio:     chunk,
+			Format:    format,
+		})) {
+			return fmt.Errorf("client send failed")
+		}
+		return nil
+	})
+	if err != nil {
+		log.Printf("[ChatLogic] session=%s TTS stream error: %v", sessionId, err)
+		return
+	}
+
+	l.sendMsg(client, chat.TalkResp{
+		Type:      chat.MsgTypeTTSComplete.String(),
+		SessionId: sessionId,
+	})
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+func mustMarshal(v any) []byte {
+	data, err := json.Marshal(v)
+	if err != nil {
+		log.Printf("[ChatLogic] marshal error: %v", err)
+		return nil
+	}
+	return data
+}
 
 func (l *ChatLogic) sendMsg(client *wspool.WSClient, resp chat.TalkResp) {
 	data, err := json.Marshal(resp)

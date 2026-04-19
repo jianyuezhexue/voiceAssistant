@@ -189,13 +189,15 @@ export interface WSServerMessage {
   type: MessageType;
   sessionId: string;
   text: string;
+  /** TTS 音频分片（base64，TTS_AUDIO 时携带） */
+  audio?: string;
+  /** TTS 音频格式，如 "mp3" | "wav" | "pcm" */
+  format?: string;
   /** 根据 type 不同，data 类型不同:
    * - ASR_RESULT: ASRResult
    * - ASR_COMPLETE: ASRResult
    * - LLM_TEXT: LLMResponse
    * - LLM_COMPLETE: LLMResponse
-   * - TTS_AUDIO: { audio: string, isLast: boolean }
-   * - TTS_COMPLETE: undefined
    * - STATE_UPDATE: VoiceState
    * - ERROR: { code: string, message: string }
    * - INTERRUPT: InterruptEvent
