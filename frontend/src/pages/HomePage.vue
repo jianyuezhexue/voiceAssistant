@@ -552,6 +552,9 @@ function handleWSMessage(message: WSServerMessage): void {
 async function sendTextMessage(): Promise<void> {
   if (!textInput.value.trim() || isLoading.value) return;
 
+  // 停止正在播放的 TTS 音频
+  stopTTS();
+
   const userMessage = textInput.value.trim();
   textInput.value = '';
 
