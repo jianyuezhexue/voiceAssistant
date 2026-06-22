@@ -18,6 +18,12 @@ services:
     container_name: voiceassistant-frontend
     ports:
       - "2501:2501"
+    # 正式证书：取消下面注释，把证书放到 ./certs/ 目录
+    # environment:
+    #   TLS_CERT_FILE: /certs/fullchain.pem
+    #   TLS_KEY_FILE: /certs/privkey.pem
+    # volumes:
+    #   - ./certs:/certs:ro
     depends_on:
       - backend
     restart: unless-stopped

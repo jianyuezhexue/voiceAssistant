@@ -10,8 +10,9 @@ import path from 'node:path';
 const PORT = 2501;
 const DIST = './dist';
 const BACKEND = process.env.BACKEND_URL || 'http://backend:2500';
-const CERT = './cert.pem';
-const KEY = './key.pem';
+// 优先用环境变量指定的正式证书，否则回退到内置自签名证书
+const CERT = process.env.TLS_CERT_FILE || './cert.pem';
+const KEY = process.env.TLS_KEY_FILE || './key.pem';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
