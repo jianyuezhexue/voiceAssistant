@@ -3,6 +3,7 @@ package asr
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -47,7 +48,10 @@ func NewRealTimeASR(debug bool) (*RealTimeASR, error) {
 		return nil, errors.New("ASR AppKey is required")
 	}
 
-	connCfg := nls.NewConnectionConfigWithToken(nls.DEFAULT_URL, cfg.AppKey, cfg.Token)
+	connCfg, err := GetConnectionConfigForASR()
+	if err != nil {
+		return nil, fmt.Errorf("build ASR connection config: %w", err)
+	}
 
 	logger := nls.NewNlsLogger(os.Stderr, "[ASR]", 0)
 	logger.SetDebug(debug)

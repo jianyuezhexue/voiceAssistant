@@ -31,7 +31,9 @@ type ConfigType struct {
 // Asr 封装了初始化实时语音识别所需的基本配置
 type Asr struct {
 	AppKey             string
-	Token              string
+	Token              string // 可选静态 fallback，留空时优先动态获取
+	AccessKeyId        string `mapstructure:"accessKeyId"`
+	AccessKeySecret    string `mapstructure:"accessKeySecret"`
 	VocabularyId       string
 	CustomizationId    string
 	MaxSentenceSilence int
@@ -39,14 +41,16 @@ type Asr struct {
 
 // Tts 封装了初始化语音合成所需的基本配置
 type Tts struct {
-	AppKey     string
-	Token      string
-	Voice      string // 发音人, 默认 xiaoyun
-	Format     string // 音频格式, 默认 mp3
-	SampleRate int    // 采样率, 默认 16000
-	Volume     int    // 音量 0-100, 默认 50
-	SpeechRate int    // 语速 -500~500, 默认 0
-	PitchRate  int    // 音高 -500~500, 默认 0
+	AppKey          string
+	Token           string // 可选静态 fallback，留空时优先动态获取
+	AccessKeyId     string `mapstructure:"accessKeyId"`
+	AccessKeySecret string `mapstructure:"accessKeySecret"`
+	Voice           string // 发音人, 默认 xiaoyun
+	Format          string // 音频格式, 默认 mp3
+	SampleRate      int    // 采样率, 默认 16000
+	Volume          int    // 音量 0-100, 默认 50
+	SpeechRate      int    // 语速 -500~500, 默认 0
+	PitchRate       int    // 音高 -500~500, 默认 0
 }
 
 var Config ConfigType

@@ -35,12 +35,17 @@ func NewTTS(debug, longText bool) (*TTS, error) {
 		return nil, errors.New("TTS AppKey is required")
 	}
 
+	connCfg, err := GetConnectionConfigForTTS()
+	if err != nil {
+		return nil, fmt.Errorf("build TTS connection config: %w", err)
+	}
+
 	logger := nls.NewNlsLogger(os.Stderr, "[TTS]", 0)
 	logger.SetDebug(debug)
 	logger.SetLogSil(!debug)
 
 	return &TTS{
-		connCfg:  nls.NewConnectionConfigWithToken(nls.DEFAULT_URL, cfg.AppKey, cfg.Token),
+		connCfg:  connCfg,
 		defParam: buildParam(cfg),
 		logger:   logger,
 		longText: longText,

@@ -553,7 +553,10 @@ async function sendTextMessage(): Promise<void> {
   if (!textInput.value.trim() || isLoading.value) return;
 
   // 停止正在播放的 TTS 音频
-  stopTTS();
+  if (ttsActive) {
+    ttsPlayer.stop();
+    ttsActive = false;
+  }
 
   const userMessage = textInput.value.trim();
   textInput.value = '';
