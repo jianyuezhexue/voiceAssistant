@@ -14,8 +14,10 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-// 开发环境直接连接后端
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:2400/api/v1/chat/ws';
+// WebSocket 地址：默认跟随当前页面 host，dev 走 vite 代理，生产走 Go 同端口
+// 可用 VITE_WS_URL 显式覆盖
+const WS_URL = import.meta.env.VITE_WS_URL ||
+  `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/v1/chat/ws`;
 
 // 心跳配置
 const HEARTBEAT_INTERVAL = 30000; // 30秒

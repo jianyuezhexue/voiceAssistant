@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 
 	"github.com/spf13/viper"
 )
@@ -70,6 +71,27 @@ func init() {
 	}
 	if err := viper.Unmarshal(&Config); err != nil {
 		fmt.Println(err)
+	}
+
+	// 环境变量覆盖：便于容器化部署时注入监听地址、数据源等，无需修改 config.yaml
+	applyEnvOverrides()
+}
+
+// applyEnvOverrides 用环境变量覆盖配置项（仅当对应 env 非空时生效）
+func applyEnvOverrides() {
+	if h := os.Getenv("SERVER_HOST"); h != "" {
+		Config.Server.Host = h
+	}
+	if p := os.Getenv("SERVER_PORT"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil {
+			Config.Server.Port = v
+		}
+	}
+	if d := os.Getenv("MYSQL_DSN"); d != "" {
+		Config.Mysql.DbSource = d
+	}
+	if a := os.Getenv("REDIS_ADDRESS"); a != "" {
+		Config.Redis.Address = a
 	}
 }
 

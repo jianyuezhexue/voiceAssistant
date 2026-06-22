@@ -1,0 +1,14 @@
+# 构建上下文排除项（build context 为仓库根）
+**/node_modules
+**/dist
+.git
+.setting
+.vscode
+.claude
+doc
+docker
+# 误提交的本地二进制
+backend/server
+backend/backend
+backend/__debug_bin*
+**/.DS_Store

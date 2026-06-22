@@ -1,6 +1,9 @@
 package router
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"voice-assistant/backend/api"
 	"voice-assistant/backend/api/chat"
 	"voice-assistant/backend/api/knowledge"
@@ -52,6 +55,31 @@ func Setup() *gin.Engine {
 			knowledgeGroup.DELETE("", knowledgeApi.Del)
 		}
 	}
+
+	// 前端静态文件托管（生产：Go 单进程托管 Vite 打包产物）
+	distDir := os.Getenv("WEB_DIST_DIR")
+	if distDir == "" {
+		distDir = "./web/dist"
+	}
+	indexFile := filepath.Join(distDir, "index.html")
+	// /assets/* 走快速静态路径
+	r.Static("/assets", filepath.Join(distDir, "assets"))
+	// 其余根目录静态文件（favicon.svg / icons.svg / audio-processor.js 等）+ SPA 回退
+	r.NoRoute(func(c *gin.Context) {
+		p := c.Request.URL.Path
+		if strings.HasPrefix(p, "/api/") {
+			c.JSON(404, gin.H{"code": -1, "message": "not found"})
+			return
+		}
+		// 尝试从 dist 中提供对应文件
+		fp := filepath.Join(distDir, filepath.Clean(p))
+		if info, err := os.Stat(fp); err == nil && !info.IsDir() {
+			c.File(fp)
+			return
+		}
+		// SPA 回退：未匹配路由交由前端路由处理
+		c.File(indexFile)
+	})
 
 	return r
 }
