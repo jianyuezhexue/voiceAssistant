@@ -30,5 +30,6 @@ RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=backend /out/server ./server
 COPY --from=frontend /web/dist ./web/dist
+COPY --from=backend /src/config/config.yaml ./config.yaml
 EXPOSE 2500
 ENTRYPOINT ["./server"]

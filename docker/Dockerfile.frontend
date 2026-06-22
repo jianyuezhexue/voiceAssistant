@@ -1,0 +1,16 @@
+# VoiceAssistant 前端镜像：Vue 构建 + Node 静态服务器 + API 反向代理
+# （使用本地缓存 node:20-alpine，无需拉取 nginx）
+FROM node:20-alpine AS builder
+WORKDIR /web
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+ENV NODE_OPTIONS=--max-old-space-size=512
+COPY frontend/ ./
+RUN npx vite build
+
+FROM node:20-alpine
+WORKDIR /app
+COPY --from=builder /web/dist ./dist
+COPY docker/serve.mjs ./serve.mjs
+EXPOSE 2501
+ENTRYPOINT ["node", "serve.mjs"]

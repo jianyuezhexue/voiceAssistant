@@ -1,0 +1,12 @@
+# VoiceAssistant 后端镜像：Go 构建 + 运行时（使用本地缓存 golang:1.25-alpine）
+FROM golang:1.25-alpine
+WORKDIR /src
+COPY backend/ ./
+ENV CGO_ENABLED=0 GOMAXPROCS=1 GOFLAGS=-mod=vendor
+RUN go build -p 1 -ldflags="-s -w" -o /app/server .
+
+WORKDIR /app
+RUN cp /src/config/config.yaml ./config.yaml && \
+    rm -rf /src /root/.cache /root/go/pkg
+EXPOSE 2500
+ENTRYPOINT ["./server"]

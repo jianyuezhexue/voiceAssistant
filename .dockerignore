@@ -6,7 +6,6 @@
 .vscode
 .claude
 doc
-docker
 # 误提交的本地二进制
 backend/server
 backend/backend

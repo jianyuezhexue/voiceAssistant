@@ -1,16 +1,23 @@
-# 生产环境：前后端一体化单容器 + Redis
+# 生产环境：前端 Node + 后端 Go 双容器
 # 用法：cd docker && docker-compose up -d --build
-# 浏览器：http://localhost
+# 浏览器：http://localhost:2501
 services:
-  app:
+  backend:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
-    container_name: voiceassistant-app
+      dockerfile: docker/Dockerfile.backend
+    container_name: voiceassistant-backend
     ports:
-      - "2500:2500"          # 浏览器 http://localhost → 容器 2500
-    environment:
-      SERVER_HOST: 0.0.0.0
-      SERVER_PORT: "2500"
-      REDIS_ADDRESS: redis:6379
+      - "2500:2500"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+    container_name: voiceassistant-frontend
+    ports:
+      - "2501:2501"
+    depends_on:
+      - backend
     restart: unless-stopped
