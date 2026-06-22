@@ -1,6 +1,8 @@
-// VoiceAssistant 生产环境前端静态服务器
+// VoiceAssistant 生产环境前端静态服务器（HTTPS）
 // - 托管 Vue SPA 静态文件
 // - /api/ 反向代理到后端（含 WebSocket 升级）
+// - getUserMedia 需要安全上下文，生产环境必须 HTTPS
+import https from 'node:https';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,6 +10,8 @@ import path from 'node:path';
 const PORT = 2501;
 const DIST = './dist';
 const BACKEND = process.env.BACKEND_URL || 'http://backend:2500';
+const CERT = './cert.pem';
+const KEY = './key.pem';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -77,7 +81,7 @@ function upgradeProxy(req, socket, head) {
 // 需代理到后端的非 API 路径
 const BACKEND_ROUTES = ['/health'];
 
-const server = http.createServer((req, res) => {
+function handleRequest(req, res) {
   // API + 后端独有路由代理
   if (req.url.startsWith('/api/') || BACKEND_ROUTES.some(r => req.url.startsWith(r))) {
     return proxyReq(req, res);
@@ -100,16 +104,21 @@ const server = http.createServer((req, res) => {
 
   res.writeHead(404);
   res.end('Not Found');
-});
+}
 
-// WebSocket 代理
-server.on('upgrade', (req, socket, head) => {
+// HTTPS 服务器
+const httpsServer = https.createServer(
+  { cert: fs.readFileSync(CERT), key: fs.readFileSync(KEY) },
+  handleRequest,
+);
+
+httpsServer.on('upgrade', (req, socket, head) => {
   if (req.url.startsWith('/api/')) {
     return upgradeProxy(req, socket, head);
   }
   socket.destroy();
 });
 
-server.listen(PORT, () => {
-  console.log(`Frontend server listening on port ${PORT}, proxy -> ${BACKEND}`);
+httpsServer.listen(PORT, () => {
+  console.log(`Frontend HTTPS server on port ${PORT}, proxy -> ${BACKEND}`);
 });

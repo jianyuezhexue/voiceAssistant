@@ -9,7 +9,12 @@ COPY frontend/ ./
 RUN npx vite build
 
 FROM node:20-alpine
+RUN apk add --no-cache openssl
 WORKDIR /app
+# 生成自签名证书（getUserMedia 需要 HTTPS 安全上下文）
+RUN openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout ./key.pem -out ./cert.pem \
+    -subj "/CN=VoiceAssistant"
 COPY --from=builder /web/dist ./dist
 COPY docker/serve.mjs ./serve.mjs
 EXPOSE 2501
