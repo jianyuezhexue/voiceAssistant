@@ -23,32 +23,32 @@ This file defines the agent cluster for VoiceAssistant project development. Each
   - Coordinate with Architecture Expert for review
   - Finalize technical documentation after feedback loops
 
-### 3. Senior Backend Engineer (资深后端工程师)
-- **Working Directory:** `backend/`
+### 3. Senior App Engineer (资深应用工程师)
+- **Working Directory:** `app/`
 - **Available Skills:**
   - `/backend-code-structure` - Go backend code structure guidelines
   - `/table-design-convention` - Database table design conventions
   - MySQL MCP (`mcp__mysql__*`) - Database operations and queries
 - **Responsibilities:**
-  - Implement backend code based on technical documentation
+  - Implement Go application code based on technical documentation
   - Fix bugs reported by Test Engineer
   - Ensure code follows project conventions
 
-### 4. Senior Frontend Engineer (资深前端工程师)
-- **Working Directory:** `frontend/`
+### 4. Senior UI Engineer (资深前端工程师)
+- **Working Directory:** `ui/`
 - **Available Skills:**
   - `/frontend-design` - Frontend UI/UX design guidelines
   - `/frontend-api-integration` - Frontend API integration patterns
   - Other skills as needed (e.g., `/canvas-design`, `/web-artifacts-builder`)
 - **Responsibilities:**
-  - Implement frontend code based on technical documentation
+  - Implement Vue 3 UI code based on technical documentation
   - Fix bugs reported by Test Engineer
   - Ensure responsive and accessible UI implementation
 
 ### 5. Senior DevOps Engineer (资深运维工程师)
 - **Working Directory:** `docker/`
 - **Responsibilities:**
-  - **CRITICAL:** Must start both frontend and backend projects via Docker only
+  - **CRITICAL:** Must start both UI and app projects via Docker only
   - **NEVER** use local host machine to start services
   - Configure Docker Compose for multi-container orchestration
   - Manage container lifecycle (start, stop, restart, logs)
@@ -157,7 +157,7 @@ This file defines the agent cluster for VoiceAssistant project development. Each
 |------|---------------|---------|
 | Product Manager | `xxxprd.md` | `voice-activation-prd.md` |
 | Business Architect | `xxxTec.md` | `voice-activationTec.md` |
-| Bug Reports | `bug_{id}_{component}.md` | `bug_001_frontend.md` |
+| Bug Reports | `bug_{id}_{component}.md` | `bug_001_ui.md` |
 
 ---
 
@@ -167,11 +167,11 @@ This file defines the agent cluster for VoiceAssistant project development. Each
 
 ```bash
 # 安装/更新依赖后，创建 vendor 目录
-cd backend && go mod tidy && go mod vendor
+cd app && go mod tidy && go mod vendor
 
 # Docker 构建时使用 vendor 目录
 # Dockerfile.app 中已配置：
-COPY backend/vendor /app/vendor
+COPY app/vendor /app/vendor
 RUN go build -mod=vendor -o server .
 ```
 
@@ -199,8 +199,8 @@ docker-compose down
 ```
 
 ### Service Names
-- `backend` - Go backend service
-- `frontend` - Frontend web application
+- `app` - Go application service
+- `ui` - Vue web UI application
 - `mysql` - Database service
 
 ---

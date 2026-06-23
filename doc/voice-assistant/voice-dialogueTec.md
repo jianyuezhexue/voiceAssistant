@@ -552,7 +552,7 @@ func (dc *AudioDataChannel) SendTTSAudio(pcmData []byte, timestamp int64, isLast
 ### 4.1 前端目录结构
 
 ```
-frontend/src/
+ui/src/
 ├── services/
 │   ├── ws.ts                    # WebSocket 服务
 │   ├── datachannel.ts           # DataChannel 服务
@@ -1008,7 +1008,7 @@ wake_word:
 ### 5.1 后端目录结构
 
 ```
-backend/
+app/
 ├── api/
 │   ├── voice/
 │   │   ├── handler.go          # WebSocket Handler
@@ -2715,7 +2715,7 @@ services:
 │                        Docker Compose                            │
 │                                                                  │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │  frontend   │  │   backend   │  │    mysql    │              │
+│  │  ui         │  │  app        │  │    mysql    │              │
 │  │  :3000      │  │   :8080     │  │   :3306     │              │
 │  └─────────────┘  └─────────────┘  └─────────────┘              │
 │                                                                  │
@@ -2770,7 +2770,7 @@ CMD ["./server"]
 ```yaml
 services:
   backend:
-    build: ./backend
+    build: ./app
     ports:
       - "8080:8080"
     environment:
@@ -2848,8 +2848,8 @@ volumes:
 
 | 服务 | 容器端口 | 主机端口 | 协议 | 说明 |
 |------|---------|---------|------|------|
-| frontend | 3000 | 3000 | HTTP | Vue3前端 |
-| backend | 8080 | 8080 | HTTP/WSS | Go后端（含sherpa-onnx） |
+| ui | 3000 | 3000 | HTTP | Vue3前端 |
+| app | 8080 | 8080 | HTTP/WSS | Go后端（含sherpa-onnx） |
 | mysql | 3306 | 3306 | TCP | MySQL数据库 |
 | redis | 6379 | 6379 | TCP | Redis缓存 |
 

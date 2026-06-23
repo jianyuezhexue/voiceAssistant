@@ -30,9 +30,9 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
-backend/config/config.yaml
+app/config/config.yaml
 .mcp.json
 .setting/
-backend/__debug_bin*
-backend/backend
-backend/demo/tests/
+app/__debug_bin*
+app/app
+app/demo/tests/

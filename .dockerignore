@@ -7,7 +7,7 @@
 .claude
 doc
 # 误提交的本地二进制
-backend/server
-backend/backend
-backend/__debug_bin*
+app/server
+app/app
+app/__debug_bin*
 **/.DS_Store

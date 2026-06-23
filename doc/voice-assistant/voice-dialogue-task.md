@@ -192,7 +192,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ## 三、前端开发任务
 
 ### Task-F-01: 音频采集服务
-**文件**: `frontend/src/composables/useAudioCapture.ts`
+**文件**: `ui/src/composables/useAudioCapture.ts`
 
 #### 功能点
 - [ ] `initialize()` - 初始化 WebRTC AudioContext
@@ -217,7 +217,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-F-02: 唤醒词检测服务
-**文件**: `frontend/src/composables/useWakeWord.ts`
+**文件**: `ui/src/composables/useWakeWord.ts`
 
 #### 功能点
 - [ ] 唤醒词配置加载 (`keyword: "小爱同学"`)
@@ -246,7 +246,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-F-03: VAD 语音活动检测
-**文件**: `frontend/src/composables/useVAD.ts`
+**文件**: `ui/src/composables/useVAD.ts`
 
 #### 功能点
 - [ ] WebRTC VAD 初始化
@@ -270,7 +270,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-F-04: 语音状态机
-**文件**: `frontend/src/composables/useVoiceDialogue.ts` + `frontend/src/stores/voice.ts`
+**文件**: `ui/src/composables/useVoiceDialogue.ts` + `ui/src/stores/voice.ts`
 
 #### 功能点
 - [ ] 7种状态定义: IDLE/LISTENING/RECOGNIZING/THINKING/RESPONDING/PLAYING/ERROR
@@ -300,7 +300,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-F-05: 打断处理机制
-**文件**: `frontend/src/composables/useInterruptHandler.ts`
+**文件**: `ui/src/composables/useInterruptHandler.ts`
 
 #### 功能点
 - [ ] 打断来源枚举: USER_SPEECH / USER_CLICK / SERVER_CMD / TIMEOUT
@@ -324,7 +324,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-F-06: WebSocket 通信服务
-**文件**: `frontend/src/services/ws.ts`
+**文件**: `ui/src/services/ws.ts`
 
 #### 功能点
 - [ ] `connect()` - 建立 WebSocket 连接 (ws://host:8080/ws/voice)
@@ -352,7 +352,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-F-06.5: 连接生命周期管理
-**文件**: `frontend/src/composables/useVoiceDialogue.ts`
+**文件**: `ui/src/composables/useVoiceDialogue.ts`
 
 #### 功能点
 - [ ] 连接建立成功后 Alert 弹窗 "连接成功，开启对话"
@@ -371,7 +371,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-F-07: DataChannel 音频传输服务
-**文件**: `frontend/src/services/datachannel.ts`
+**文件**: `ui/src/services/datachannel.ts`
 
 #### 功能点
 - [ ] WebRTC PeerConnection 创建
@@ -395,7 +395,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-F-08: UDP 乱序缓冲处理
-**文件**: `frontend/src/services/audioBuffer.ts`
+**文件**: `ui/src/services/audioBuffer.ts`
 
 #### 功能点
 - [ ] `AudioBuffer` 类实现
@@ -424,7 +424,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ### Task-F-09: UI 组件开发
 
 #### Task-F-09.1: VoiceButton 语音按钮
-**文件**: `frontend/src/components/voice/VoiceButton.vue`
+**文件**: `ui/src/components/voice/VoiceButton.vue`
 
 - [ ] 圆形按钮设计 (64px)
 - [ ] 默认/录音/禁用 状态样式
@@ -439,7 +439,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 - [ ] 测试禁用状态点击无响应
 
 #### Task-F-09.2: VoiceWaveform 波形动画
-**文件**: `frontend/src/components/voice/VoiceWaveform.vue`
+**文件**: `ui/src/components/voice/VoiceWaveform.vue`
 
 - [ ] Canvas 绘制波形
 - [ ] 录音时实时音量可视化
@@ -453,7 +453,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 - [ ] 测试动画帧率 (60fps)
 
 #### Task-F-09.3: VoiceStatus 状态显示
-**文件**: `frontend/src/components/voice/VoiceStatus.vue`
+**文件**: `ui/src/components/voice/VoiceStatus.vue`
 
 - [ ] 5种状态文字显示
 - [ ] 状态对应图标/动画
@@ -464,7 +464,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 - [ ] 测试状态切换时 UI 更新
 
 #### Task-F-09.4: DialogueBubble 对话气泡
-**文件**: `frontend/src/components/voice/DialogueBubble.vue`
+**文件**: `ui/src/components/voice/DialogueBubble.vue`
 
 - [ ] 用户消息气泡 (右侧，橙色)
 - [ ] AI 消息气泡 (左侧，白色)
@@ -480,7 +480,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-F-10: 前端类型定义
-**文件**: `frontend/src/types/voice.ts`
+**文件**: `ui/src/types/voice.ts`
 
 - [ ] VoiceState 枚举
 - [ ] InterruptSource 枚举
@@ -502,7 +502,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ## 三、后端开发任务
 
 ### Task-B-01: 项目结构与配置
-**文件**: `backend/`
+**文件**: `app/`
 
 #### 功能点
 - [ ] 目录结构创建 (api/, component/, domain/, logic/, config/, router/)
@@ -521,7 +521,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-B-02: 后端类型定义
-**文件**: `backend/domain/voice/types.go`
+**文件**: `app/domain/voice/types.go`
 
 #### 功能点
 - [ ] VoiceState 枚举 (Idle/Listening/Recognizing/Thinking/Responding/Playing/Error)
@@ -540,7 +540,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-B-03: SessionManager 会话管理
-**文件**: `backend/domain/voice/session.go`
+**文件**: `app/domain/voice/session.go`
 
 #### 功能点
 - [ ] `NewSessionManager()` 创建管理器
@@ -565,7 +565,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-B-04: AudioBuffer 音频缓冲管理
-**文件**: `backend/component/audio/buffer.go`
+**文件**: `app/component/audio/buffer.go`
 
 #### 功能点
 - [ ] AudioPacket 结构体 (Sequence, Timestamp, Data, SampleRate, IsLast)
@@ -591,7 +591,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-B-05: WebRTC DataChannel 服务端
-**文件**: `backend/component/webrtc/datachannel.go`
+**文件**: `app/component/webrtc/datachannel.go`
 
 #### 功能点
 - [ ] `NewAudioDataChannel()` 创建
@@ -614,7 +614,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-B-06: ASR 客户端封装
-**文件**: `backend/component/asr/client.go`
+**文件**: `app/component/asr/client.go`
 
 #### 功能点
 - [ ] ASR 客户端连接 CosyVoice/SenseVoice
@@ -634,7 +634,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-B-07: LLM 客户端封装 (Qwen API)
-**文件**: `backend/component/llm/client.go`
+**文件**: `app/component/llm/client.go`
 
 #### 功能点
 - [ ] Qwen API 客户端初始化
@@ -657,7 +657,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-B-08: TTS 客户端封装
-**文件**: `backend/component/tts/client.go`
+**文件**: `app/component/tts/client.go`
 
 #### 功能点
 - [ ] TTS 客户端连接 Qwen3-TTS
@@ -680,7 +680,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-B-09: 语音对话 WebSocket 处理
-**文件**: `backend/api/voice/dialogue.go`
+**文件**: `app/api/voice/dialogue.go`
 
 #### 功能点
 - [ ] WebSocket 握手升级 (Gin)
@@ -702,7 +702,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-B-10: 打断处理与异常管理
-**文件**: `backend/logic/voice/dialogue.go`
+**文件**: `app/logic/voice/dialogue.go`
 
 #### 功能点
 - [ ] `HandleInterrupt(sessionID, source)` 打断处理
@@ -726,7 +726,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-B-11: 全双工通信时序控制
-**文件**: `backend/logic/voice/stream.go`
+**文件**: `app/logic/voice/stream.go`
 
 #### 功能点
 - [ ] ASR → LLM → TTS Pipeline 并行
@@ -744,7 +744,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-B-12: 健康检查与降级策略
-**文件**: `backend/logic/health.go`
+**文件**: `app/logic/health.go`
 
 #### 功能点
 - [ ] `/health` 端点
@@ -758,7 +758,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ---
 
 ### Task-B-13: 后端单元测试框架
-**文件**: `backend/*_test.go`
+**文件**: `app/*_test.go`
 
 #### 单元测试覆盖率要求
 - [ ] SessionManager: 90%+
@@ -801,7 +801,7 @@ ws.onmessage = (e) => times.push({type: e.data.type, t: Date.now()});
 ## 五、部署任务
 
 ### Task-D-01: Docker 配置
-- [ ] backend/Dockerfile
+- [ ] app/Dockerfile
 - [ ] cosyvoice/Dockerfile
 - [ ] qwen3-tts/Dockerfile
 - [ ] docker-compose.yml 更新
@@ -889,7 +889,7 @@ Task-B-09 (WS Handler) ◀──────────────────
 ### Phase 1: 基础设施
 
 #### Task-B-01: 项目结构与配置
-**文件**: `backend/`
+**文件**: `app/`
 
 | 项目 | 内容 |
 |------|------|
@@ -900,7 +900,7 @@ Task-B-09 (WS Handler) ◀──────────────────
 **开发任务详情**:
 ```
 1. 创建目录结构
-   backend/
+   app/
    ├── api/voice/ & api/common/
    ├── component/llm/, asr/, tts/, webrtc/, redis/
    ├── domain/voice/
@@ -909,7 +909,7 @@ Task-B-09 (WS Handler) ◀──────────────────
    └── router/
 
 2. 初始化 go mod
-   go mod init voice-assistant/backend
+   go mod init voice-assistant/app
 
 3. 安装依赖
    go get github.com/gin-gonic/gin
@@ -929,7 +929,7 @@ Task-B-09 (WS Handler) ◀──────────────────
 ---
 
 #### Task-B-02: 后端类型定义
-**文件**: `backend/domain/voice/model.go`, `backend/domain/voice/types.go`
+**文件**: `app/domain/voice/model.go`, `app/domain/voice/types.go`
 
 | 项目 | 内容 |
 |------|------|
@@ -971,7 +971,7 @@ Task-B-09 (WS Handler) ◀──────────────────
 ### Phase 2: 核心领域模型
 
 #### Task-B-03: Session 实体与仓储接口
-**文件**: `backend/domain/voice/session.go`, `backend/domain/voice/repository.go`
+**文件**: `app/domain/voice/session.go`, `app/domain/voice/repository.go`
 
 | 项目 | 内容 |
 |------|------|
@@ -1021,7 +1021,7 @@ type ISessionRepository interface {
 ---
 
 #### Task-B-04: AudioBuffer 音频缓冲管理
-**文件**: `backend/component/audio/buffer.go`, `backend/component/audio/buffer_test.go`
+**文件**: `app/component/audio/buffer.go`, `app/component/audio/buffer_test.go`
 
 | 项目 | 内容 |
 |------|------|
@@ -1082,7 +1082,7 @@ func (b *TTSBuffer) AddWithTimeout(pkt *AudioPacket, now int64) bool
 ### Phase 3: 组件封装
 
 #### Task-B-05: WebRTC DataChannel 服务端
-**文件**: `backend/component/webrtc/datachannel.go`
+**文件**: `app/component/webrtc/datachannel.go`
 
 | 项目 | 内容 |
 |------|------|
@@ -1113,7 +1113,7 @@ func (dc *AudioDataChannel) Close() error
 ---
 
 #### Task-B-06: ASR 客户端封装
-**文件**: `backend/component/asr/client.go`
+**文件**: `app/component/asr/client.go`
 
 | 项目 | 内容 |
 |------|------|
@@ -1147,7 +1147,7 @@ type ISpeechRecognizer interface {
 ---
 
 #### Task-B-07: LLM 客户端封装 (Qwen API)
-**文件**: `backend/component/llm/client.go`
+**文件**: `app/component/llm/client.go`
 
 | 项目 | 内容 |
 |------|------|
@@ -1184,7 +1184,7 @@ type IChatModel interface {
 ---
 
 #### Task-B-08: TTS 客户端封装
-**文件**: `backend/component/tts/client.go`
+**文件**: `app/component/tts/client.go`
 
 | 项目 | 内容 |
 |------|------|
@@ -1222,7 +1222,7 @@ type ISpeechSynthesizer interface {
 ### Phase 4: 逻辑编排
 
 #### Task-B-09: 语音对话 WebSocket 处理
-**文件**: `backend/api/voice/handler.go`, `backend/logic/voice/dialogue.go`
+**文件**: `app/api/voice/handler.go`, `app/logic/voice/dialogue.go`
 
 | 项目 | 内容 |
 |------|------|
@@ -1270,7 +1270,7 @@ func (l *VoiceDialogueLogic) HandleInterrupt(ctx context.Context, sessionID stri
 ---
 
 #### Task-B-10: 打断处理与异常管理
-**文件**: `backend/logic/voice/interrupt.go`, `backend/logic/voice/circuitbreaker.go`
+**文件**: `app/logic/voice/interrupt.go`, `app/logic/voice/circuitbreaker.go`
 
 | 项目 | 内容 |
 |------|------|
@@ -1310,7 +1310,7 @@ type CircuitBreakerConfig struct {
 ---
 
 #### Task-B-11: 全双工通信时序控制
-**文件**: `backend/logic/voice/stream.go`
+**文件**: `app/logic/voice/stream.go`
 
 | 项目 | 内容 |
 |------|------|
@@ -1344,7 +1344,7 @@ func (r *StreamRouter) RouteTTS(ctx context.Context, audio *TTSAudio)
 ---
 
 #### Task-B-12: 健康检查端点
-**文件**: `backend/api/health.go`
+**文件**: `app/api/health.go`
 
 | 项目 | 内容 |
 |------|------|
@@ -1366,7 +1366,7 @@ func HealthCheck(c *gin.Context) {
 ### Phase 6: 测试
 
 #### Task-B-13: 后端单元测试框架
-**文件**: `backend/*_test.go`
+**文件**: `app/*_test.go`
 
 | 项目 | 内容 |
 |------|------|

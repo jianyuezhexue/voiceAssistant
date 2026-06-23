@@ -1,25 +1,25 @@
 # 本地开发环境：前后端独立容器 + 热重载
 # 用法：cd docker && docker-compose -f docker-compose.dev.yaml up
-# 浏览器：http://localhost:2501 （vite dev，HMR；/api 与 /ws 代理到 backend:2500）
+# 浏览器：http://localhost:2501 （vite dev，HMR；/api 与 /ws 代理到 app:2500）
 services:
-  frontend:
+  ui:
     image: node:20-alpine
-    container_name: voiceassistant-frontend-dev
+    container_name: voiceassistant-ui-dev
     working_dir: /app
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 2501"
     ports:
       - "2501:2501"
     environment:
-      VITE_API_TARGET: http://backend:2500
+      VITE_API_TARGET: http://app:2500
     volumes:
-      - ../frontend:/app
+      - ../ui:/app
       - /app/node_modules   # 匿名卷，隔离宿主 node_modules
     depends_on:
-      - backend
+      - app
 
-  backend:
+  app:
     image: golang:1.25-alpine
-    container_name: voiceassistant-backend-dev
+    container_name: voiceassistant-app-dev
     working_dir: /app
     command: go run -mod=vendor .
     ports:
@@ -28,4 +28,4 @@ services:
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: "2500"
     volumes:
-      - ../backend:/app
+      - ../app:/app

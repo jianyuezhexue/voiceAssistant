@@ -12,8 +12,8 @@ VoiceAssistant 是一个基于 Go + Vue 3 的语音助手项目，采用 Agent C
 |------|---------|---------|---------|
 | Product Manager (产品经理) | `doc/` | `xxxprd.md` | 分析需求，编写 PRD，协调产品专家评审 |
 | Business Architect (业务架构师) | `doc/` | `xxxTec.md` | 基于 PRD 设计技术架构，协调架构专家评审 |
-| Senior Backend Engineer | `backend/` | Go 代码 | 基于技术文档实现后端代码，**完成后必须触发 DevOps 重启 Docker** |
-| Senior Frontend Engineer | `frontend/` | Vue 3 代码 | 基于技术文档实现前端 UI，**完成后必须触发 DevOps 重启 Docker** |
+| Senior App Engineer | `app/` | Go 代码 | 基于技术文档实现后端代码，**完成后必须触发 DevOps 重启 Docker** |
+| Senior UI Engineer | `ui/` | Vue 3 代码 | 基于技术文档实现前端 UI，**完成后必须触发 DevOps 重启 Docker** |
 | Senior DevOps Engineer | `docker/` | Docker 配置 | **仅通过 Docker 启动服务**，配置容器编排 |
 | Test Engineer | 项目根目录 | Bug 报告 | 收集日志、报告 bug、验证修复 |
 | Senior Product Expert | `doc/` | 评审意见 | 评审 PRD，最多 3 轮反馈 |
@@ -27,8 +27,8 @@ VoiceAssistant 是一个基于 Go + Vue 3 的语音助手项目，采用 Agent C
 **接到任何任务后，必须先分析是否应交给特定 Agent 执行：**
 - PRD/需求分析 → Product Manager
 - 技术架构设计 → Business Architect
-- Go 后端代码/修复 → Senior Backend Engineer
-- Vue 前端代码/修复 → Senior Frontend Engineer
+- Go 后端代码/修复 → Senior App Engineer
+- Vue 前端代码/修复 → Senior UI Engineer
 - Docker/服务部署 → Senior DevOps Engineer
 - Bug 报告/测试验证 → Test Engineer
 - PRD 评审 → Senior Product Expert
@@ -39,7 +39,7 @@ VoiceAssistant 是一个基于 Go + Vue 3 的语音助手项目，采用 Agent C
 
 ### Docker 操作（DevOps）
 - **禁止**在本地主机启动服务，必须通过 Docker
-- 服务名：`backend`、`frontend`、`mysql`
+- 服务名：`app`、`ui`、`mysql`
 - 常用命令：
   ```bash
   cd docker && docker-compose up -d        # 启动所有服务
@@ -52,7 +52,7 @@ VoiceAssistant 是一个基于 Go + Vue 3 的语音助手项目，采用 Agent C
 - 使用 `go mod vendor` 管理第三方依赖
 - 安装/更新依赖后执行：
   ```bash
-  cd backend && go mod tidy && go mod vendor
+  cd app && go mod tidy && go mod vendor
   ```
 - Dockerfile 使用 vendor 目录构建：`go build -mod=vendor -o server .`
 
@@ -61,7 +61,7 @@ VoiceAssistant 是一个基于 Go + Vue 3 的语音助手项目，采用 Agent C
 |------|---------|------|
 | Product Manager | `xxxprd.md` | `voice-activation-prd.md` |
 | Business Architect | `xxxTec.md` | `voice-activationTec.md` |
-| Bug Reports | `bug_{id}_{component}.md` | `bug_001_frontend.md` |
+| Bug Reports | `bug_{id}_{component}.md` | `bug_001_ui.md` |
 
 ---
 
@@ -70,7 +70,7 @@ VoiceAssistant 是一个基于 Go + Vue 3 的语音助手项目，采用 Agent C
 ### Path 1: 新需求开发
 ```
 Product Manager → PRD 评审(最多3轮) → Business Architect → 技术评审(最多3轮)
-    → Backend/Frontend 实现 → [自动] DevOps 重启 Docker → Test Engineer 验证 → 验收
+    → App/UI 实现 → [自动] DevOps 重启 Docker → Test Engineer 验证 → 验收
 ```
 
 ### Path 2: Bug 处理
