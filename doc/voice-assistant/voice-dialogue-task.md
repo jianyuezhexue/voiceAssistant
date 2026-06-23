@@ -62,7 +62,7 @@
 | 步骤 | 操作 | 预期结果 |
 |------|------|---------|
 | 1 | 启动所有 Docker 服务: `cd docker && docker-compose up -d` | 所有容器正常运行 |
-| 2 | 打开浏览器，访问 VoiceAssistant 首页 | 页面正常加载 |
+| 2 | 打开浏览器，访问 voiceAssistant 首页 | 页面正常加载 |
 | 3 | 打开浏览器控制台，切换到 Network 标签 | Network 面板已就绪 |
 | 4 | 检查 WebSocket 连接: `ws://localhost:8080/ws/voice` | 连接状态为 101 Switching Protocols |
 | 5 | 检查麦克风权限 | 浏览器弹出权限请求，点击允许 |

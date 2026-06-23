@@ -1,7 +1,7 @@
 # DBA SQL Reviewer Agent Memory
 
 ## 项目信息
-- 项目: VoiceAssistant
+- 项目: voiceAssistant
 - 数据库: MySQL
 - 数据库访问: 通过 MCP 工具 `mcp__mysql__*`
 

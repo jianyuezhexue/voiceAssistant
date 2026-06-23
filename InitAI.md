@@ -1,7 +1,7 @@
-# VoiceAssistant Agent Cluster Initialization
+# voiceAssistant Agent Cluster Initialization
 
 ## Overview
-This file defines the agent cluster for VoiceAssistant project development. Each agent has defined roles, working areas, and interaction protocols.
+This file defines the agent cluster for voiceAssistant project development. Each agent has defined roles, working areas, and interaction protocols.
 
 ---
 

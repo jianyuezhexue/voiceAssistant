@@ -1,6 +1,6 @@
 ---
 name: test-engineer
-description: "VoiceAssistant项目测试工程师 - 收集日志、报告Bug、验证修复"
+description: "voiceAssistant项目测试工程师 - 收集日志、报告Bug、验证修复"
 type: reference
 ---
 

@@ -26,7 +26,7 @@ function switchPage(page: PageName) {
     <!-- Warm Cream Header -->
     <header class="app-header">
       <div class="header-left">
-        <h1 class="app-title">VoiceAssistant</h1>
+        <h1 class="app-title">voiceAssistant</h1>
       </div>
 
       <div class="header-right">

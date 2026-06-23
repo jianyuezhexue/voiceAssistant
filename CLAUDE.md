@@ -1,8 +1,8 @@
-# VoiceAssistant Project
+# voiceAssistant Project
 
 ## 项目概述
 
-VoiceAssistant 是一个基于 Go + Vue 3 的语音助手项目，采用 Agent Cluster 工作流进行开发。
+voiceAssistant 是一个基于 Go + Vue 3 的语音助手项目，采用 Agent Cluster 工作流进行开发。
 
 ---
 
@@ -131,7 +131,7 @@ Test Engineer 收集 bug → 分发到相关工程师 → 修复 → [自动] De
 
 **Brand Personality**: 温暖 · 高效 · 可靠
 
-**Aesthetic Direction**: 暖色奶油风 (Warm Cream)，保持现有VoiceAssistant的UI风格一致性
+**Aesthetic Direction**: 暖色奶油风 (Warm Cream)，保持现有voiceAssistant的UI风格一致性
 
 **Design Principles**:
 1. 即时反馈 - 每个操作都有明确的视觉/听觉反馈

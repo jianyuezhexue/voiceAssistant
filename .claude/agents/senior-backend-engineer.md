@@ -1,6 +1,6 @@
 ---
 name: senior-app-engineer
-description: "VoiceAssistant项目资深应用工程师 - Go应用实现、Bug修复、遵循项目规范"
+description: "voiceAssistant项目资深应用工程师 - Go应用实现、Bug修复、遵循项目规范"
 type: reference
 ---
 

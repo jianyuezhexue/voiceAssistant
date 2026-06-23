@@ -1,6 +1,6 @@
 ---
 name: senior-ui-engineer
-description: "VoiceAssistant项目资深UI工程师 - Vue3 UI实现、Bug修复、响应式界面"
+description: "voiceAssistant项目资深UI工程师 - Vue3 UI实现、Bug修复、响应式界面"
 type: reference
 ---
 

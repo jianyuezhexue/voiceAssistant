@@ -316,7 +316,7 @@ dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 | 跨平台 | 简单（Go 天然跨平台） | 需要编译 C++ |
 | 维护成本 | 低（社区维护） | 高（需同步官方） |
 
-**推荐**: 对于 VoiceAssistant 项目，优先使用 `pion/webrtc`，其在保持良好性能的同时大大降低了集成复杂度。
+**推荐**: 对于 voiceAssistant 项目，优先使用 `pion/webrtc`，其在保持良好性能的同时大大降低了集成复杂度。
 
 #### 2.5.4 后端 DataChannel 服务端实现
 

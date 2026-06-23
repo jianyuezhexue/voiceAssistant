@@ -2,7 +2,7 @@
 
 ## 背景
 
-VoiceAssistant 项目接入阿里云 NLS 实时语音识别（SpeechTranscription），前端通过浏览器 Web Audio API 采集麦克风音频，经 WebSocket 流式传输到 Go 后端，后端转发到 NLS 服务完成识别。调试过程中遇到多个典型问题，记录如下。
+voiceAssistant 项目接入阿里云 NLS 实时语音识别（SpeechTranscription），前端通过浏览器 Web Audio API 采集麦克风音频，经 WebSocket 流式传输到 Go 后端，后端转发到 NLS 服务完成识别。调试过程中遇到多个典型问题，记录如下。
 
 ---
 

@@ -1,4 +1,4 @@
-# VoiceAssistant 前端镜像：Vue 构建 + Node 静态服务器 + API 反向代理
+# voiceAssistant 前端镜像：Vue 构建 + Node 静态服务器 + API 反向代理
 # （使用本地缓存 node:20-alpine，无需拉取 nginx）
 FROM node:20-alpine AS builder
 WORKDIR /web
@@ -14,7 +14,7 @@ WORKDIR /app
 # 生成自签名证书（getUserMedia 需要 HTTPS 安全上下文）
 RUN openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
     -keyout ./key.pem -out ./cert.pem \
-    -subj "/CN=VoiceAssistant"
+    -subj "/CN=voiceAssistant"
 COPY --from=builder /web/dist ./dist
 COPY docker/serve.mjs ./serve.mjs
 EXPOSE 2501

@@ -1,4 +1,4 @@
-# VoiceAssistant 一体化镜像：前端构建 + 后端构建 → 单运行时镜像
+# voiceAssistant 一体化镜像：前端构建 + 后端构建 → 单运行时镜像
 # 生产环境 2c2g：通过 GOMAXPROCS=1 + go build -p 1 限制编译期 CPU，避免打满
 
 # ---- Stage 1: 前端构建 ----

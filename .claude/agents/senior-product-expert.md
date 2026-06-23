@@ -1,6 +1,6 @@
 ---
 name: senior-product-expert
-description: "VoiceAssistant项目资深产品专家 - PRD评审、3轮反馈、驱动批准"
+description: "voiceAssistant项目资深产品专家 - PRD评审、3轮反馈、驱动批准"
 type: reference
 ---
 

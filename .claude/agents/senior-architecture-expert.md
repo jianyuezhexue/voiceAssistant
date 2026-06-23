@@ -1,6 +1,6 @@
 ---
 name: senior-architecture-expert
-description: "VoiceAssistant项目资深架构专家 - 技术文档评审、3轮反馈、驱动批准"
+description: "voiceAssistant项目资深架构专家 - 技术文档评审、3轮反馈、驱动批准"
 type: reference
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: senior-product-manager
-description: "VoiceAssistant项目资深产品经理 - 分析需求、编写PRD、协调产品专家评审"
+description: "voiceAssistant项目资深产品经理 - 分析需求、编写PRD、协调产品专家评审"
 type: reference
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: business-architect
-description: "VoiceAssistant项目业务架构师 - 基于PRD设计技术架构、协调架构专家评审"
+description: "voiceAssistant项目业务架构师 - 基于PRD设计技术架构、协调架构专家评审"
 type: reference
 ---
 
