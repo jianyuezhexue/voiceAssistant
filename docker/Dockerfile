@@ -15,7 +15,7 @@ COPY frontend/ ./
 RUN npx vite build  # 产出 /web/dist
 
 # ---- Stage 2: 后端构建（单线程编译，最小化 CPU）----
-FROM golang:1.26-alpine AS backend
+FROM golang:1.25.8-alpine AS backend
 WORKDIR /src
 COPY backend/ ./
 # CGO_ENABLED=0 静态链接；GOMAXPROCS=1 限制 Go 工具链并发；-mod=vendor 用本地依赖
