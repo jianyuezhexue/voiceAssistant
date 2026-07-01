@@ -12,7 +12,7 @@ cd "$DIR/docker"
 
 # 无参数时默认构建并后台启动，有参数则透传
 if [ $# -eq 0 ]; then
-  docker-compose up -d --build
+  docker compose up -d --build
 else
-  docker-compose "$@"
+  docker compose "$@"
 fi
