@@ -186,7 +186,7 @@ LLM服务通过Qwen API（阿里云百炼平台）调用，不再使用本地vLL
 **环境变量配置**:
 | 变量名 | 说明 | 示例值 |
 |-------|------|-------|
-| DASHSCOPE_API_KEY | 阿里云百炼API密钥 | sk-e692504205e74522b45710e1c25065ad |
+| DASHSCOPE_API_KEY | 阿里云百炼API密钥 | sk-ws-H.RXIYDPX.1jwe.MEYCIQCynsTgIkZOW3ytNPWs5yC_d_PBUvB5H9FcQ9Kfq6oNvQIhAJ0ceg9GZSA63PV6pE2383R0iemCTf2uEMh7gqpJiXvE |
 | LLM_MODEL | 模型名称 | qwen-plus |
 
 #### 2.4.2 Go代码实现
@@ -201,7 +201,7 @@ import (
 )
 
 // NewChatModel 创建Qwen聊天模型实例
-apiKey := "sk-e692504205e74522b45710e1c25065ad"
+apiKey := "sk-ws-H.RXIYDPX.1jwe.MEYCIQCynsTgIkZOW3ytNPWs5yC_d_PBUvB5H9FcQ9Kfq6oNvQIhAJ0ceg9GZSA63PV6pE2383R0iemCTf2uEMh7gqpJiXvE"
 modelName := "qwen-plus"
 chatModel, err := qwen.NewChatModel(ctx, &qwen.ChatModelConfig{
     BaseURL:     "https://dashscope.aliyuncs.com/compatible-mode/v1",
