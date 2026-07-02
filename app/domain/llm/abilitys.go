@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"voice-assistant/app/component/tool"
+	"voice-assistant/app/config"
 
 	"github.com/cloudwego/eino-ext/components/model/ark"
 	"github.com/cloudwego/eino-ext/components/model/ollama"
@@ -18,18 +19,13 @@ type LLMInterface interface {
 	NewQwen35flashModel(ctx context.Context) (model.ToolCallingChatModel, error)
 }
 
-// GLM5
+// NewQwenChatModel 百炼平台聊天模型 (qwen3.6-plus)
 func (a *LLM) NewQwenChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
-	// todo 使用env文件存储密钥
-	apiKey := "sk-e692504205e74522b45710e1c25065ad"
-	modelName := "qwen3.6-plus"
-	// modelName := "qwen3.6-flash"
-	// modelName := "glm-5"
 	chatModel, err := qwen.NewChatModel(ctx, &qwen.ChatModelConfig{
-		BaseURL:     "https://dashscope.aliyuncs.com/compatible-mode/v1",
-		APIKey:      apiKey,
+		BaseURL:     config.Config.Dashscope.BaseURL,
+		APIKey:      config.Config.Dashscope.APIKey,
 		Timeout:     0,
-		Model:       modelName,
+		Model:       "qwen3.6-plus",
 		MaxTokens:   tool.Of(2048),
 		Temperature: tool.Of(float32(0.7)),
 		TopP:        tool.Of(float32(0.7)),
@@ -41,16 +37,13 @@ func (a *LLM) NewQwenChatModel(ctx context.Context) (model.ToolCallingChatModel,
 	return chatModel, nil
 }
 
-// deepseek-v4-flash
+// NewQwen35flashModel 百炼平台快速模型 (deepseek-v4-flash)
 func (a *LLM) NewQwen35flashModel(ctx context.Context) (model.ToolCallingChatModel, error) {
-	// todo 使用env文件存储密钥
-	apiKey := "sk-e692504205e74522b45710e1c25065ad"
-	modelName := "deepseek-v4-flash"
 	chatModel, err := qwen.NewChatModel(ctx, &qwen.ChatModelConfig{
-		BaseURL:     "https://dashscope.aliyuncs.com/compatible-mode/v1",
-		APIKey:      apiKey,
+		BaseURL:     config.Config.Dashscope.BaseURL,
+		APIKey:      config.Config.Dashscope.APIKey,
 		Timeout:     0,
-		Model:       modelName,
+		Model:       "deepseek-v4-flash",
 		MaxTokens:   tool.Of(2048),
 		Temperature: tool.Of(float32(0.7)),
 		TopP:        tool.Of(float32(0.7)),
@@ -62,12 +55,12 @@ func (a *LLM) NewQwen35flashModel(ctx context.Context) (model.ToolCallingChatMod
 	return chatModel, nil
 }
 
-// Ark模型(qwen-plus)
+// NewArkChatModel 百炼平台 Ark 模型 (qwen-plus)
 func (a *LLM) NewArkChatModel(ctx context.Context) (model.ToolCallingChatModel, error) {
 	cm, err := ark.NewChatModel(context.Background(), &ark.ChatModelConfig{
-		APIKey:  "sk-e692504205e74522b45710e1c25065ad",
+		APIKey:  config.Config.Dashscope.APIKey,
 		Model:   "qwen-plus",
-		BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+		BaseURL: config.Config.Dashscope.BaseURL,
 		Thinking: &arkModel.Thinking{
 			Type: arkModel.ThinkingTypeDisabled,
 		},

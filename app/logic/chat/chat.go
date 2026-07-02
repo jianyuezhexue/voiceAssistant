@@ -115,14 +115,14 @@ func (l *ChatLogic) handleAudio(client *wspool.WSClient, msg chat.WsMsgType) {
 		asrClient, err := asr.NewRealTimeASR(true)
 		if err != nil {
 			log.Printf("[ChatLogic] session=%s ASR init error: %v", client.SessionId, err)
-			l.sendError(client, msg.SessionId, "语音识别服务初始化失败")
+			l.sendError(client, msg.SessionId, fmt.Sprintf("语音识别服务初始化失败: %v", err))
 			return
 		}
 
 		resultChan, err := asrClient.Start("PCM", 16000)
 		if err != nil {
 			log.Printf("[ChatLogic] session=%s ASR start error: %v", client.SessionId, err)
-			l.sendError(client, msg.SessionId, "语音识别服务启动失败")
+			l.sendError(client, msg.SessionId, fmt.Sprintf("语音识别服务启动失败: %v", err))
 			return
 		}
 
@@ -192,7 +192,7 @@ func (l *ChatLogic) processASRResults(client *wspool.WSClient, sessionId string,
 			l.asrMu.Lock()
 			l.asrClient = nil
 			l.asrMu.Unlock()
-			l.sendError(client, sessionId, "语音识别失败，请重试")
+			l.sendError(client, sessionId, fmt.Sprintf("语音识别失败: %s", result.Text))
 		}
 	}
 }

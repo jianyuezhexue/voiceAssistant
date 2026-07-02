@@ -197,10 +197,17 @@ async function startRecording(): Promise<void> {
   try {
     console.log('[AudioRecorder] Starting recording...');
 
-    // 检查 WebSocket 连接
+    // 检查 WebSocket 连接，等待连接真正建立再继续
     if (!voiceWS.isConnected()) {
       console.log('[AudioRecorder] WebSocket not connected, connecting...');
-      voiceWS.connect();
+      try {
+        await voiceWS.connect();
+        console.log('[AudioRecorder] WebSocket connected');
+      } catch (e) {
+        console.error('[AudioRecorder] Failed to connect WebSocket:', e);
+        alert('连接服务器失败，请刷新页面重试');
+        return;
+      }
     }
 
     // 获取麦克风权限（已启用浏览器降噪）

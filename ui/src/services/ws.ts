@@ -52,39 +52,86 @@ class VoiceWebSocket {
 
   /**
    * 建立 WebSocket 连接
+   * 返回 Promise，连接成功时 resolve，失败时 reject
    * @param sessionId 可选的会话 ID，会作为 query 参数带上
    */
-  connect(sessionId?: string): void {
+  connect(sessionId?: string): Promise<void> {
+    // 已连接，直接返回
     if (this.ws?.readyState === WebSocket.OPEN) {
       console.log('[WS] Already connected');
-      return;
+      return Promise.resolve();
+    }
+
+    // 正在连接中，等它完成（复用已有连接，避免重复创建）
+    if (this.ws?.readyState === WebSocket.CONNECTING) {
+      console.log('[WS] Connection in progress, waiting...');
+      return new Promise((resolve, reject) => {
+        const onOpen = () => { cleanup(); resolve(); };
+        const onError = (e: Event) => { cleanup(); reject(new Error('WebSocket connection failed')); };
+        const onClose = () => { cleanup(); reject(new Error('WebSocket closed during connect')); };
+        const cleanup = () => {
+          this.ws?.removeEventListener('open', onOpen);
+          this.ws?.removeEventListener('error', onError);
+          this.ws?.removeEventListener('close', onClose);
+        };
+        this.ws!.addEventListener('open', onOpen);
+        this.ws!.addEventListener('error', onError);
+        this.ws!.addEventListener('close', onClose);
+      });
     }
 
     this.isManualDisconnect = false;
 
-    // 拼接 sessionId 到 URL
-    let url = WS_URL;
-    const sid = sessionId || this.sessionId;
-    if (sid) {
-      this.sessionId = sid;
-      const sep = url.includes('?') ? '&' : '?';
-      url = `${url}${sep}sessionId=${encodeURIComponent(sid)}`;
-    }
+    return new Promise((resolve, reject) => {
+      // 拼接 sessionId 到 URL
+      let url = WS_URL;
+      const sid = sessionId || this.sessionId;
+      if (sid) {
+        this.sessionId = sid;
+        const sep = url.includes('?') ? '&' : '?';
+        url = `${url}${sep}sessionId=${encodeURIComponent(sid)}`;
+      }
 
-    console.log(`[WS] Connecting to ${url}...`);
+      console.log(`[WS] Connecting to ${url}...`);
 
-    try {
-      this.ws = new WebSocket(url);
-      this.ws.binaryType = 'arraybuffer';
+      const doConnect = () => {
+        let settled = false;
+        try {
+          this.ws = new WebSocket(url);
+          this.ws.binaryType = 'arraybuffer';
 
-      this.ws.onopen = this.handleOpen.bind(this);
-      this.ws.onmessage = this.handleMessage.bind(this);
-      this.ws.onerror = this.handleError.bind(this);
-      this.ws.onclose = this.handleClose.bind(this);
-    } catch (e) {
-      console.error('[WS] Failed to create WebSocket:', e);
-      this.scheduleReconnect();
-    }
+          this.ws.onopen = () => {
+            settled = true;
+            this.handleOpen();
+            resolve();
+          };
+
+          this.ws.onmessage = this.handleMessage.bind(this);
+
+          this.ws.onerror = (error: Event) => {
+            if (!settled) {
+              settled = true;
+              reject(new Error('WebSocket connection error'));
+            }
+            this.handleError(error);
+          };
+
+          this.ws.onclose = (event: CloseEvent) => {
+            if (!settled) {
+              settled = true;
+              reject(new Error(`WebSocket closed before connect: ${event.code}`));
+            }
+            this.handleClose(event);
+          };
+        } catch (e) {
+          console.error('[WS] Failed to create WebSocket:', e);
+          this.scheduleReconnect();
+          reject(e);
+        }
+      };
+
+      doConnect();
+    });
   }
 
   /**

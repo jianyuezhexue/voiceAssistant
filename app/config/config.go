@@ -24,8 +24,15 @@ type ConfigType struct {
 		Address  string `json:"address"`
 		Password string `json:"password"`
 	}
-	Asr Asr
-	Tts Tts
+	Dashscope Dashscope
+	Asr       Asr
+	Tts       Tts
+}
+
+// Dashscope 阿里云百炼 API 配置
+type Dashscope struct {
+	APIKey  string
+	BaseURL string
 }
 
 // Asr 封装了初始化实时语音识别所需的基本配置
@@ -96,6 +103,12 @@ func applyEnvOverrides() {
 	}
 	if a := os.Getenv("REDIS_ADDRESS"); a != "" {
 		Config.Redis.Address = a
+	}
+	if k := os.Getenv("DASHSCOPE_API_KEY"); k != "" {
+		Config.Dashscope.APIKey = k
+	}
+	if u := os.Getenv("DASHSCOPE_BASE_URL"); u != "" {
+		Config.Dashscope.BaseURL = u
 	}
 }
 
